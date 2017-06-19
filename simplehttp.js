@@ -32,51 +32,60 @@ function sendPost(url, options) {
 }
 
 exports.image = image;
-
-function image(url, options, callback) {
+async function image(url, options, callback) {
     options.encoding = null;
-    sendGet(url, options, function (err, response, body) {
-        if (err) {
-            callback(err)
-            return
-        }
-        // console.log("response.headers", response.headers, body)
-        var type = options.type;
-        if (!type) {
-            if (response.getHeader !== undefined) {
-                type = response.getHeader('content-type');
-            } else if (response.headers !== undefined) {
-                type = response.headers['content-type'];
-            }
-        }
+    const { err, res, body } = await sendGet(url, options);
 
-        //var type = "image/jpeg"//response.headers['content-type'];
-        if (!type) {
-            callback(new Error('Invalid content-type'))
-            return
+    let type = options.type;
+    if (!type) {
+        if (res.getHeader !== undefined) {
+            type = res.getHeader('content-type');
+        } else if (res.headers !== undefined) {
+            type = res.headers['content-type'];
         }
+    }
 
-        pixelsUtil(body, type, callback)
-
+    return new Promise(function (resolve, reject) {
+        pixelsUtil(body, type, function (err, pixels) {
+            const image = {
+                width: pixels.shape[0],
+                height: pixels.shape[1],
+                data: pixels.data
+            };
+            resolve(image);
+        })
     })
+
+
 }
 
-// function sendRequest(url, method, options, callback) {
-//     var timeout = options["../timeout"];
-//     delete options["../timeout"];
-//     var jar = options["../cookieJar"];
-//     delete options["../cookieJar"];
 
-//     var form = options;
-//     request({
-//         uri: url,
-//         method: method,
-//         form: form,
-//         jar: jar,
-//         timeout: timeout
-//     }, function(error, response, body) {
-//         callback(error, response, body);
-//     });
+// function image(url, options, callback) {
+//     options.encoding = null;
+//     sendGet(url, options, function (err, response, body) {
+//         if (err) {
+//             callback(err)
+//             return
+//         }
+//         // console.log("response.headers", response.headers, body)
+//         var type = options.type;
+//         if (!type) {
+//             if (response.getHeader !== undefined) {
+//                 type = response.getHeader('content-type');
+//             } else if (response.headers !== undefined) {
+//                 type = response.headers['content-type'];
+//             }
+//         }
+
+//         //var type = "image/jpeg"//response.headers['content-type'];
+//         if (!type) {
+//             callback(new Error('Invalid content-type'))
+//             return
+//         }
+
+//         pixelsUtil(body, type, callback)
+
+//     })
 // }
 
 function sendRequest(options, callback) {

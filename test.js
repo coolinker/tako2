@@ -3,8 +3,12 @@ const pixelsUtil = require("get-pixels");
 const captchautil = require("./captchautil");
 const simplehttp = require("./simplehttp");
 const users = require("./users");
-const BuyPriceMax = 16000, BuyPriceMin = 1500;
+console.log(users)
+const user = 'yjh';
+
+const BuyPriceMax = 16000, BuyPriceMin = 0;
 process.setMaxListeners(0);
+let Network_responseReceived = null;
 
 function timeout(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -29,10 +33,11 @@ function pageOnload(Page) {
   })
 }
 
+
 function responseOnReceived(Network, urls) {
   console.log("responseOnReceived..")
   return new Promise(function (resolve, reject) {
-    Network.responseReceived((req) => {
+    Network_responseReceived = (req) => {
       //https://www.lup2p.com/trading/service/trade/contract-list?
       const rurl = req.response.url;
       let rid;
@@ -47,24 +52,33 @@ function responseOnReceived(Network, urls) {
 
       if (rid) resolve(rid);
 
-    });
+    };
 
   })
 }
 
 async function responseDataOnReceived(Network, urls) {
   const resid = await responseOnReceived(Network, urls);
-  console.log("responseDataOnReceived------", resid)
+  console.log("responseDataOnReceived", resid)
   const data = await Network.getResponseBody({ requestId: resid });
-  console.log("responseDataOnReceived------", data)
+  console.log("responseDataOnReceived body length", data.body.length)
   return data;
 }
 
-async function navigateUntilReceive(Page, Network, url, reurls) {
+async function navigateUntilDataReceive(Page, Network, url, reurls) {
   Page.navigate({ url: url });
 
   if (!reurls) reurls = [url];
   const data = await responseDataOnReceived(Network, reurls);
+
+  return data;
+}
+
+async function navigateUntilResponse(Page, Network, url, reurls) {
+  Page.navigate({ url: url });
+
+  if (!reurls) reurls = [url];
+  const data = await responseOnReceived(Network, reurls);
 
   return data;
 }
@@ -110,15 +124,15 @@ async function doLogin(DOM, Page, Network, Runtime) {
   const s = new Date();
   console.log("login------------start")
 
-  const data = await navigateUntilReceive(Page, Network, 'https://user.lu.com/user/login?returnPostURL=https%3A%2F%2Flist.lu.com%2Flist%2Ftransfer-p2p', ['https://user.lu.com/user/captcha/captcha.jpg?']);
+  const data = await navigateUntilDataReceive(Page, Network, 'https://user.lu.com/user/login?returnPostURL=https%3A%2F%2Flist.lu.com%2Flist%2Ftransfer-p2p', ['https://user.lu.com/user/captcha/captcha.jpg?']);
   const image = await Base64ToImageNArray(data.body, 'image/jpeg');
 
   await Runtime.evaluate({
-    expression: "document.querySelector('#userNameLogin').value='"+users[user].phone+"';"
+    expression: "document.querySelector('#userNameLogin').value='" + users[user].phone + "';"
   });
 
   await Runtime.evaluate({
-    expression: "document.querySelector('#pwd').value='"+users[user].password+"'"
+    expression: "document.querySelector('#pwd').value='" + users[user].password + "'"
   });
 
   await Runtime.evaluate({
@@ -158,17 +172,26 @@ async function doLogin(DOM, Page, Network, Runtime) {
 
 async function showDetail(Page, DOM, Runtime, Network, pid) {
   const prdid = pid;
-  const url = 'https://list.lu.com/list/productDetail?productId='+pid;
+  const url = 'https://list.lu.com/list/productDetail?productId=' + pid;
   console.log("showDetail prdid", pid)
 
-  await navigate(Page, url);
+  navigate(Page, url);
+  await responseOnReceived(Network, ['https://list.lu.com/list/service/product/' + pid + '/productDetail?',
+    'https://user.lu.com/user/service/user/current-user-info-for-homepage?']);
+
+
+  console.log("navigate----finished")
   // http://www.lu.com/notFound.html
   const btnAtts = await getDomAttributes(DOM, '.btns.btn_xlarge.investBtn.sk-area-trigger');
+  console.log("btnAtts----", btnAtts)
   if (!btnAtts) return false;
+
+
 
   await Runtime.evaluate({
     expression: "document.querySelector('.btns.btn_xlarge.investBtn.sk-area-trigger').click()"
   });
+  console.log("------------------click investBtn")
 
   const in_req = await responseDataOnReceived(Network, ['https://list.lu.com/list/itrading/invest-check']);
   //const in_rep = await Network.getResponseBody({ requestId: in_reqId });
@@ -284,8 +307,9 @@ async function showDetail(Page, DOM, Runtime, Network, pid) {
     expression: "document.getElementById('validBtn').click()"
   });
 
-
+  console.log("validBtn clicked")
 }
+
 async function listTransferM3024(Page, DOM, Network) {
   console.log("listTransferM3024...")
   const options = {};
@@ -304,20 +328,23 @@ async function listTransferM3024(Page, DOM, Network) {
 
   // const rsp = await simplehttp.GET('https://list.lu.com/list/transfer-p2p?minMoney=' + BuyPriceMin + '&maxMoney=' + BuyPriceMax + '&minDays=&maxDays=&minRate=&maxRate=&mode=&tradingMode=&isOverdueTransfer=&isCx=&currentPage=1&orderCondition=&isShared=&canRealized=&productCategoryEnum=&notHasBuyFeeRate=&riskLevel=');
   // console.log(rsp.body.length)
-  const rsp = await simplehttp.POST('https://ma.lu.com/mapp/service/public?M3024&listType=trans_p2p?_'+Math.round(Math.random() * 100000), options);
+  const rsp = await simplehttp.POST('https://ma.lu.com/mapp/service/public?M3024&listType=trans_p2p?_' + Math.round(Math.random() * 100000), options);
   const bodyJson = JSON.parse(rsp.body);
-//   {"code":"0000","subcode":"","message":"","lid":"T-02f84158-14e7-4c0f-b2b0-4081d6913202_113620221","result":{"totalCount":1,"totalPage":1,"prePage":0,"nextPage":
-// 1,"currentPage":1,"model":"products",
-// "products":[{"productList":
-//     [{"id":150196074,"price":8781.2,"principal":8756.68,"interestRate":"0.084","numOfInstalments":31
-// ,"sourceId":310963071,"publishedAt":"Jun 17, 2017 11:36:16 AM","code":"170617027385","productType":"TRANSFER_REQUEST","productStatus":"ONLINE","collectionMode":
-// "1","productName":"1","tradingMode":"00","mgmtFeeRate":0,"feeDisplayFlag":"false","extOnlineDianjinCount":0,"sourceType":"9","maxInvestAmount":8781.2,"minInvest
-// Amount":8781.2,"remainingAmoun
+  //   {"code":"0000","subcode":"","message":"","lid":"T-02f84158-14e7-4c0f-b2b0-4081d6913202_113620221","result":{"totalCount":1,"totalPage":1,"prePage":0,"nextPage":
+  // 1,"currentPage":1,"model":"products",
+  // "products":[{"productList":
+  //     [{"id":150196074,"price":8781.2,"principal":8756.68,"interestRate":"0.084","numOfInstalments":31
+  // ,"sourceId":310963071,"publishedAt":"Jun 17, 2017 11:36:16 AM","code":"170617027385","productType":"TRANSFER_REQUEST","productStatus":"ONLINE","collectionMode":
+  // "1","productName":"1","tradingMode":"00","mgmtFeeRate":0,"feeDisplayFlag":"false","extOnlineDianjinCount":0,"sourceType":"9","maxInvestAmount":8781.2,"minInvest
+  // Amount":8781.2,"remainingAmoun
+  if (bodyJson.code !== "0000") {
+    console.log(rsp.body)
 
+  }
   if (bodyJson.code === "0000" && bodyJson.result.totalCount > 0) {
     const prds = bodyJson.result.products[0].productList;
-    for (let i=0; i<prds.length; i++) {
-      if (prds[i].productStatus === 'ONLINE' &&  Number(prds[i].interestRate) >= 0.084 && prds[i].price > BuyPriceMin && prds[i].price < BuyPriceMax) {
+    for (let i = 0; i < prds.length; i++) {
+      if (prds[i].productStatus === 'ONLINE' && Number(prds[i].interestRate) >= 0.084 && prds[i].price > BuyPriceMin && prds[i].price < BuyPriceMax) {
         console.log("---", prds[i]);
         return prds[i].id;
       }
@@ -328,9 +355,14 @@ async function listTransferM3024(Page, DOM, Network) {
 }
 
 async function listTransfer(Page, DOM, Network) {
+  const s = new Date();
   console.log("listTransfer...")
-  await navigate(Page, 'https://list.lu.com/list/transfer-p2p?minMoney=' + BuyPriceMin + '&maxMoney=' + BuyPriceMax + '&minDays=&maxDays=&minRate=&maxRate=&mode=&tradingMode=&isOverdueTransfer=&isCx=&currentPage=1&orderCondition=&isShared=&canRealized=&productCategoryEnum=&notHasBuyFeeRate=&riskLevel=');
+  //await navigate(Page, 'https://list.lu.com/list/transfer-p2p?minMoney=' + BuyPriceMin + '&maxMoney=' + BuyPriceMax + '&minDays=&maxDays=&minRate=&maxRate=&mode=&tradingMode=&isOverdueTransfer=&isCx=&currentPage=1&orderCondition=&isShared=&canRealized=&productCategoryEnum=&notHasBuyFeeRate=&riskLevel=');
+  //const transferlist = await simplehttp.GET('https://list.lu.com/list/transfer-p2p?minMoney=' + BuyPriceMin + '&maxMoney=' + BuyPriceMax + '&minDays=&maxDays=&minRate=&maxRate=&mode=&tradingMode=&isOverdueTransfer=&isCx=&currentPage=1&orderCondition=&isShared=&canRealized=&productCategoryEnum=&notHasBuyFeeRate=&riskLevel=');
+  await navigateUntilResponse(Page, Network, 'https://list.lu.com/list/transfer-p2p?minMoney=' + BuyPriceMin + '&maxMoney=' + BuyPriceMax + '&minDays=&maxDays=&minRate=&maxRate=&mode=&tradingMode=&isOverdueTransfer=&isCx=&currentPage=1&orderCondition=&isShared=&canRealized=&productCategoryEnum=&notHasBuyFeeRate=&riskLevel='
+    , ['https://list.lu.com/list/transfer-p2p?']);
 
+  console.log("listTransfer...finished", new Date() - s)
   const { root: { nodeId: documentNodeId } } = await DOM.getDocument();
   const { nodeIds: itemNodeIds } = await DOM.querySelectorAll({
     selector: 'li.product-list.has-bottom.transfer-list.clearfix',
@@ -366,6 +398,9 @@ chrome(async protocol => {
   // Extract the parts of the DevTools protocol we need for the task.
   // See API docs: https://chromedevtools.github.io/devtools-protocol/
   const { Page, Runtime, Network, DOM } = protocol;
+  Network.responseReceived((req) => {
+    if (Network_responseReceived) Network_responseReceived(req);
+  })
 
   // First, need to enable the domains we're going to use.
   await Promise.all([
@@ -381,15 +416,17 @@ chrome(async protocol => {
   let lpid = null;
   do {
     const s = new Date();
-    await timeout(300);
+    await timeout(100);
     pid = await listTransferM3024(Page, DOM, Network);
     await timeout(500);
     if (!pid) pid = await listTransfer(Page, DOM, Network);
-    await timeout(300);
+    await timeout(100);
+    if (!pid) pid = await listTransfer(Page, DOM, Network);
+    await timeout(100);
     if (!pid) pid = await listTransferM3024(Page, DOM, Network);
     await timeout(500);
     if (!pid) pid = await listTransfer(Page, DOM, Network);
-    
+    //if (!pid) pid = await listTransfer(Page, DOM, Network);
     console.log("\nlistTransfer", pid, new Date() - s);
 
     if (pid && lpid !== pid) {
