@@ -1,18 +1,26 @@
-var request = require("request");
+const request = require("request");
 const pixelsUtil = require("get-pixels");
 const captchautil = require("./captchautil");
 const simplehttp = require("./simplehttp");
+const htmlparser = require('./htmlparser');
+const mobileheaderutil = require("./mobileheaderutil");
+const pppoeutil = require("./pppoeutil");
+
 const users = require("./users");
-var RSAKey = require('./rsa.js');
-var mobileheaderutil = require("./mobileheaderutil");
+const RSAKey = require('./rsa.js');
 
-console.log(users)
+let BuyPriceMax = 0.8, BuyPriceMin = 0.2;
 
-async function securityValid() {
-    const { err, res, body } = await simplehttp.GET('https://static.lufaxcdn.com/trading/resource/securityValid/main/1be866c2e005.securityValid.js');
-    const publicKey = body.match(/encryptPwd\:function\(e\){var t="(.+)",n=/)[1];
-    const rsaExponent = body.match(/n\.setPublic\(t,"(.+)"\),n\./)[1];
-    return { publicKey, rsaExponent };
+var maxPrice = process.argv[2];
+if (maxPrice) BuyPriceMax = Number(maxPrice);
+console.log("BuyPriceMax", BuyPriceMax);
+
+function randomNumber() {
+    return Math.round(Math.random() * 100000);
+}
+
+function timeout(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 async function getCaptchaBySource(source, cookieJar) {
@@ -35,41 +43,288 @@ async function captchaPreCheck(captachaStr, cookieJar) {
     return json.result === "SUCCESS";
 }
 
+async function productDetail(pid, user) {
+    const { err, res, body } = await simplehttp.GET('https://list.lu.com/list/service/product/' + pid + '/productDetail?_=' + new Date().getTime(), {
+        "cookieJar": user.jar
+    });
+    return body;
+}
 
-async function login(username) {
-    const rsakey = new RSAKey();
+async function investCheck(pid, price, user) {
+    const { err, res, body } = await simplehttp.POST('https://list.lu.com/list/itrading/invest-check', {
+        form: {
+            productId: pid,
+            investAmount: price,
+            investSource: 0,
+            isCheckSQ: 1
+        },
+        "cookieJar": user.jar
+    });
+    console.log("investCheck", body)
+    const data = JSON.parse(body).data;
+    return data.sid?data:null;
+}
+
+async function checkTrace(sid, pid, user, step) {
+    //https://www.lup2p.com/trading/service/trade/check-trace?sid=290982241&productId=149703381&userId=1770933&curStep=TRADE_INFO&_=1497194027793
+    const { err, res, body } = await simplehttp.GET('https://www.lup2p.com/trading/service/trade/check-trace?sid='
+        + sid + '&productId=' + pid + '&userId=' + user.id + '&curStep=' + step + '&_=' + new Date().getTime(), {
+            "cookieJar": user.jar
+        });
+    console.log("checkTrace:", sid, step, body)
+    return body === 'true';
+}
+
+
+async function tradeTrace(sid, pid, user, step, timeout) {
+    const { err, res, body } = await simplehttp.POST("https://www.lup2p.com/trading/service/trade/trace", {
+        "timeout": timeout ? timeout : 10000,
+        "cookieJar": user.jar,
+        "headers": {
+            "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"
+        },
+        "form": {
+            sid: sid,
+            productId: pid,
+            curStep: step//"TRADE_INFO" "CONTRACT" "OTP"
+        }
+    });
+    console.log("tradeTrace", step, err, body)
+    return body ? JSON.parse(body).result : null;
+}
+
+async function crackTradingCaptcha(sid, pid, user) {
+    //https://www.lup2p.com/trading/service/trade/captcha/create-captcha
+    const { err, res, body } = await simplehttp.POST('https://www.lup2p.com/trading/service/trade/captcha/create-captcha', {
+        "cookieJar": user.jar,
+        "form": {
+            sid: sid,
+            productId: pid
+        }
+    });
+    const imageId = JSON.parse(body).imageId;
+    console.log("imageId:", imageId, body)
+    if (!imageId) return null;
+
+    const img = await simplehttp.image('https://user.lu.com/user/captcha/get-captcha?source=1&imageId=' + imageId + '&_=' + new Date().getTime(), {
+        "cookieJar": user.jar,
+        type: 'image/jpeg'
+    });
+
+    const captchaStr = captchautil.crackCaptcha(img);
+    // https://www.lup2p.com/trading/service/trade/captcha-pre-check?captcha=VL8t&sid=294850368&imgId=25e563f08163414fbd187999a5155cf0&_=1498261082059
+    const preck = await simplehttp.GET('https://www.lup2p.com/trading/service/trade/captcha-pre-check?captcha='
+        + captchaStr + '&sid=' + sid + '&imgId=' + imageId + '&_=' + new Date().getTime(), {
+            "cookieJar": user.jar
+        });
+
+    return preck.body && JSON.parse(preck.body).result === 'SUCCESS' ? {captchaStr, imageId} : null;
+}
+
+async function investmentRequest(sid, pid, user, captcha, imageId, paymentMethod) {
+    const { err, res, body } = await simplehttp.POST('https://www.lup2p.com/trading/investment-request', {
+        "cookieJar": user.jar,
+        "form": {
+            sid: sid,
+            productId: pid,
+            source: 0,
+            needWithholding: false,
+            coinString: '',
+            paymentMethod: paymentMethod,
+            password: user.rsakey.encrypt(user.tradeCode),
+            isSetPassword: 0,
+            captcha: captcha,
+            imgId: imageId
+        }
+    });
+
+    return body;
+}
+
+async function getBalanceInfo(user){
+     const {err, res, body} = await simplehttp.GET('https://my.lu.com/my/account', {
+         "cookieJar": user.jar
+     });
+
+     const availablePrt = htmlparser.getValueFromBody('<h3 class="coin-point-item-header">可用余额</h3>', '元', body);
+     let available = htmlparser.getValueFromBody('class="coin-point-item-number security-mark-hide">', '</span>', availablePrt);
+     user.available = Number(available.replace(',', ''));
+            
+     const lhbPrt = htmlparser.getValueFromBody('<h3 class="coin-point-item-header"> 零活宝T+0 </h3>', '元', body);
+     let lhb = htmlparser.getValueFromBody('class="coin-point-item-number security-mark-hide">', '</span>', lhbPrt);
+     lhb = Number(lhb.trim().replace(',', ''));
+     user.lhb = lhb;
+
+     user.updatedInfoTime = new Date();
+     console.log("user info updated:", user.available, lhb)
+}
+
+let lastProductId;
+async function listTransferM3024() {
+    //console.log("listTransferM3024...")
+    const options = {};
+    options.form = {
+        requestCode: "M3024",
+        version: "3.4.9",
+        params: '{"cookieUserName":"","readListType":"trans_p2p","filterBeginInvestPeriodInDay":"10","width":720,"listType":"trans_p2p","pageSize":"15","ver":"1","isForNewUser":"false","productSortType":"INTEREST_RATE_DESC","forNewUser":"false","pageIndex":"1","filterEndTransPrice":"'
+        + BuyPriceMax + '","source":"android","filterBeginTransPrice":"' + BuyPriceMin + '","currentPage":"1"}'
+    };
+
+    options.headers = mobileheaderutil.getHeaders();
+
+    const rsp = await simplehttp.POST('https://ma.lu.com/mapp/service/public?M3024&listType=trans_p2p?_' + randomNumber(), options);
+
+    let bodyJson;
+    try {
+        bodyJson = JSON.parse(rsp.body);
+    } catch (e) {
+        console.log(rsp.body);
+        return null;
+    }
+
+    if (bodyJson.code !== "0000") {
+        console.log(new Date(), rsp.body);
+        //await timeout(15 * 60 * 1000);
+        await pppoeutil.updateIP();
+        return null;
+    }
+
+    if (bodyJson.code === "0000" && bodyJson.result.totalCount > 0) {
+        const prds = bodyJson.result.products[0].productList;
+        for (let i = 0; i < prds.length; i++) {
+            // console.log(prds[i].productStatus, prds[i].price, prds[i].price<6000, prds[i].interestRate)
+            if (prds[i].productStatus === 'ONLINE' && Number(prds[i].interestRate) >= 0.084 && prds[i].price > 10000 * BuyPriceMin && prds[i].price < 10000 * BuyPriceMax) {
+                console.log("---", prds[i].productStatus, prds[i].price, prds[i].id);
+                if (lastProductId !== prds[i].id) {
+                    lastProductId = prds[i].id;
+                    return prds[i];
+                }
+
+            }
+        }
+    }
+
+    return null;
+}
+
+async function login(username, jar) {
     const user = users[username];
-    const { publicKey, rsaExponent } = await securityValid();
+    const cookieJar = jar || request.jar();
+    const rsakey = new RSAKey();
+    
+    const { err, res, body } = await simplehttp.GET('https://user.lu.com/user/login', {
+        "cookieJar": cookieJar
+    });
+
+    const publicKey = htmlparser.getValueFromBody('id="publicKey" name="publicKey" value="', '" />', body);
+    const rsaExponent = htmlparser.getValueFromBody('id="rsaExponent" name="rsaExponent" value="', '" />', body);
     rsakey.setPublic(publicKey, rsaExponent);
-    const cookieJar = request.jar();
     const cncryptPassword = rsakey.encrypt(user.password);
 
     let success = false, captchaStr;
     do {
+        console.log("process captcha...")
         const img = await getCaptchaBySource('login', cookieJar);
         captchaStr = captchautil.crackCaptcha(img);
         success = await captchaPreCheck(captchaStr, cookieJar);
+        console.log("------------captchaPreCheck", captchaStr, success)
     } while (!success);
 
-
-    const { err, res, body } = await simplehttp.POST('https://ma.lu.com/mapp/service/public?M8001', {
-        "cookieJar": cookieJar,
+    const { err: err1, res: res1, body: json } = await simplehttp.POST('https://user.lu.com/user/login', {
         form: {
-            requestCode: "M8001",
-            version: "3.4.9",
-            params: '{"userNameLogin":"' + username + '","password":"' + cncryptPassword + '","validNum":"' + captachStr + '","IMVC":"","mobileSerial":"868191022314031"}'
+            userName: user.name,
+            password: cncryptPassword,
+            pwd: "************",
+            validNum: captchaStr,
+            agreeLbo: "on",
+            loginagree: "on",
+            isTrust: "Y",
+            openlbo: 0,
+            deviceKey: '66E00DCE36AB0B018E09A78A87B2BA150461F28D2E4C45308D32B5238E3CC0E6AF446210063B1803E4BDCC8857105B2A1DB77004350EFDC1088F7512824B83DF81C67E25E4ABC62F35984E68DB2152DD0ED84B7DD5FFCAC74DA36504285CBE9A70C205D5CD295A48B2966642313F95EFAC2CFE83F1114DA3B5FEDCCCD7CA6BC4',
+            deviceInfo: 'ZjBYRjUJtcV/J8bQjUQJru05EziGRcXHwRx+jqTxJBQM5rJ5ZcikYpm1a+nKqqXB5VGWqNfnUiDcUV+49lcVbkgSKs4TmvhVb0g6qTrJxO6TXIp7531NhxZmD0isfuQwpSJmBOXEA3gtWYFWdr9yKZCng+BbK8Htbnm7aZHVH4bnJG1MKSdeG6PZvyB9RX7IfaVi2a+KZc+MU8DOP23dKu/wMcseWTgJLUv1lCGzJtmEnjPl4AnSn25+BiNqKth8uOGO0WaNpzHQ2AbebwKhCQMy0KUBFuAZ1Sb0tAzRBdgFAXA+9fHmNnR2nGiqaEuKblql91ctOjE2F+RGG7/5MnWXefpzhboktjxLg9MNe71nFdzmhZ+Nkx78iX97eVlBlHp/8WCv4z/9TZ6pycBCHgYWux08uhevcu3nkhUO47r55VcnTjoGpKLfZUHRFsedxFaR+zOFh0UJuehCXKf8PhtoWGpev+QBLai99C+eIZ9QWqfKdke5zAlb2olN7OZa2hGWopdvd1GU91pbgLM+tT39OiStqXGKz61STp0uhSlW49TM8mSWvVb4q1pmu3XnrOMTAJ3zs5sYTSwC1LoP6zkSR/KheVPcvKdLmC8GmZhVTu+qzkrO4f/7GV1hrLZyn/rZDoeojrPHQdBHZIqIPuijkJgTraYbcrFK+BHrgRH1sKxKU8+cFc1Bw7+b+n7Mmy/qtNGYIG9K+0n11bER/ayNUdPdqc5B1Wfaqx/o1n81T9sZXbidqeTpCBKJa09ab0Sc0CDFxAdiLSa+OFrIOMgQignVLCn8w6ESVheQG9EikTB2kvxXpDd+f/3DEmCAo7Gvsebxb0nl+4sT4Cfc358uzRY+QpE0uEqF892TFPnJffslMCiwcWGy8vwyuPEK+f6R4m2US51cmr4uNIcSDa23IoV+qqg2eiCUibK4Z8bnwT0N8HnXhLDTdbvh9E/ktK6iTLZA1O5UY3p1HRlZF7tKf6xCj8Uvg7o1xWMbkPeozKXqpnwdshvptn4SBPszCA6MBvYlq8a5H1atxKEDfOTyCVpNoMsXmyIELWEkDPJMSRv6ABAUIrfI9nD2xpjwYEHJ6EU31o9Vhmu0dCNcnhhFravKr+vqAlqC1YDpn6HmufmTxJANvsEjM4xPpzhDxawIvjUs3cbfvAd8aXtbs2Sd8zyKttNlyZwRsde568dav4dyUzryBPr7rid5Xi79HhB1FKyaQoNVIQPLOF4qGpXGojm4w7bmcuKULguDBr9ph/RNnY0mcvMz/VU6azyct3I72FtVWdxvWDTRsHW4T6+MhX+3sd5R1QfT+iKYDc1ph/RNnY0mcvMz/VU6azycjEqA5976ZpGfo3A+GLFz8XZvaPhjeZEVpH3Q8wh+8RaocWSfXAznbGHDsgm4ZliPTwIYYUGv8bxlVqY408847BRAYN0bc+mch2sxGHlm3oGhj7NtVcqImz16JeB2Dl2DJh5vlysPQbFScIlSOgpNQ3CesrsGKfFmlWxWOnfdwQsRdcvSz1SuxA3okxrtq+KCeNpTcjgq5HFNTCSRJLmejBLwgUWgIQEYB3ZlkIKCbZIE1630+jG1e63MJ/XKU38uEitAzNGxB2yO97KGHXNS+r/xok70SrrmMQCfsunPoW9o2YKealr0hgzi02l+gzRTwkKShNrDuCcO3gMzThWm7fM7RtpHvvHWfIFk34Pt2pUHEbg35XAdNKOk5cz6NUj2HQSrdyPHLtlTcvjJzKaGkca/5dx+omEDJ/p9xq0ef10KAriZfP1AM5bpI+Tp9XYbBCGlvupuNue0gSwKkHsTDQRCco3mTussLqWrdpS/iUKjT+cNrk3T8AiR9KhKJ45qRlbqYJrCBFC++IQhrONKqfwiYxspir5weH3cmoxunDrGbVW31xziKnfXfuNq0nnSdPXiaSZ4qiulIxBDETr3Ecf9jzde+2poBQRbPcv40uFXsOEFsr6DRFNxptYKg27xqCnEx7gIwjM3HHptfPs/LO6O8zGbvNTAUSJLoc3zYKpauFj182ArA5S8NeOeEA1NTJZ1j1p0KrWZb9/dRvypiPuca5aujLqdu0g9LVjzzjmS2cwKcWVrP3vDvNmXgdc1pmMRl494jcQO747KXgY99T4WYUr4Y0Fe6vX6l6qYmdU6KbWZmzvGO85wm7zZ31HRDZtFVuPgkRc0ZMAnQ4zszQQGzuBwyoD2qEN5SYUCW5ALGbDSfujwYDfU29c4uuYXSeep/ilXAYgOiYwE1Jux7BKud5f0S85q3i9jPJxUO1XX3Npbej05LM2aiIgTXGajBkUF0snTWXRflUPmHD+i0LSzFBDLBVTT9a9o67kePfoj+OSLrLmpayrFDk3WYOUEPVhS6G2y4tsgyd0iKjLdgMNIqD888E+dzCgoJZtwpqEnlmv9EZZzfcYY0pv+8jwyM8iKVr77A/kZmhiqqo432lvQH/xaJ+pu1S1XpM+AJxeu9DzJtO6JrXDuSREzkdA28oJbhKMfczljZ8kgSV/WFFr+BL+Fip5Mz1WBZfzPJx/LF18rFXqFJh+786czHk/bnR8W95+SBmZIDUyQQ49w27BWgORZl8XGF4no3dWk0UM9hXQEJdSlbPOPQmg+nolTckPDFsMliwc2uBl8sv/oanyC1IrCussXdcE6E/Gy8N1yQ8MWwyWLBza4GXyy/+hq8pcZunvAUG7XQTcGjvY8AyByDzZto7YY3Vod/LAol07EU50laIoFJFgtdxg9U5YHOim1mZs7xjvOcJu82d9R0eyUpGO9BCMa6ATiYdaZ3bLa7DNXQMXZltY1Tb0210G1o9sQc4oEPoCFnzM3bP9d1RthrxbnaGYhNRl4XJBRSj9MlnWPWnQqtZlv391G/KmIuWVPaumL/jZAF9OsPXB+BsD8UWdQ7ULkW/MJQheKzsda+ej3eEhQvE4qQvPlzAYID/UCH/nnz/drPMJIgBQuF9y0UOMv9nPtEZ8NJwtZp+13CBe4/1ChhwEIu2/UzqxIi72E0P7eo/V5bIbWMyUqBoY5fO9rDaCq/7yz49e+bLbYEbUsLnSkt14SV2pMVoymP9J4EFBa2W85djHN/vAda+mdmVX5w1u7AgkPLg5iL95NV8weXObxJhzb4QWPrCks'
         },
-        headers: mobileheaderutil.getHeaders()
-    })
+        "cookieJar": cookieJar
+    });
 
-    const cookie_string = cookieJar.getCookieString("https://user.lu.com");
-    console.log("login status:", cookie_string.indexOf("lufaxSID") > 0, username);
-    var info = JSON.parse(body);
-    user.cookieJar = cookieJar;
-    user.uid = info.result.userOverview.userId;
-    user.loginTime = new Date();
-
-    return true;
+    user.jar = cookieJar;
+    user.id = JSON.parse(json).userId;
+    user.rsakey = rsakey;
+    return user;
 }
 
-login('yang_jianhua');
+function cookieLuToP2p(user) {
+    const jar = user.jar;
+    const str = jar.getCookieString('https://www.lu.com');
+    //let strs = ;
+    for (let kv of str.split('; ')) {
+        jar.setCookie(kv, 'https://www.lup2p.com');
+    }
+}
+
+async function start(user) {
+    let product, c = 0;
+
+    do {
+        if (!user.updatedInfoTime || new Date() - user.updatedInfoTime > 10*60*1000) {
+            getBalanceInfo(user);
+        }
+
+        await timeout(1000);
+        product = await listTransferM3024();
+        c++;
+        if (c%10 === 0) console.log(c, "***", product ? product.id : '');
+
+        if (product) {
+            const s = new Date();
+            const invck = await investCheck(product.id, product.price, user);
+
+            //"TRADE_INFO" "CONTRACT" "OTP"
+            console.log("sid==", invck, new Date() - s, 'ms');
+            if (!invck) continue;
+            const sid = invck.sid;
+            const paymentMethod = invck.paymentMethod;
+            cookieLuToP2p(user);
+            // crackTradingCaptcha(sid, product.id, user).then((crk) =>
+            //     console.log("000000000===========", crk)
+            // );
+            //if (!crack) continue;
+            //const ct = await checkTrace(sid, product.id, user, 'TRADE_INFO');
+            //console.log("ct==", ct, new Date() - s);
+
+            const tradeinfo = await tradeTrace(sid, product.id, user, 'TRADE_INFO', 10000);
+            console.log("TRADE_INFO", new Date() - s, 'ms');
+            if (tradeinfo === false) continue;
+            const contract = await tradeTrace(sid, product.id, user, 'CONTRACT', 10000);
+            console.log("CONTRACT", new Date() - s, 'ms');
+            if (contract === false) continue;
+            //const otpct = await checkTrace(sid, product.id, user, 'OTP');
+            //console.log("otpct==", otpct, new Date()-s);
+
+            const otp = await tradeTrace(sid, product.id, user, 'OTP', 10000);
+            console.log("otp", new Date() - s, 'ms')
+            if (otp === false) continue;
+
+            const crack = await crackTradingCaptcha(sid, product.id, user);
+            console.log("crack", crack, new Date() - s, 'ms')
+            
+            if (!crack) continue;
+            
+            const rel = await investmentRequest(sid, product.id, user, crack.captchaStr, crack.imageId, paymentMethod);
+            console.log(rel)
+            timeout(5000)
+        }
+    } while (true);
+
+
+
+}
+
+async function main() {
+    // await pppoeutil.updateIP();
+
+    const user = await login("yang_jianhua");
+    await start(user);
+}
+
+main();
+

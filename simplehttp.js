@@ -13,15 +13,8 @@ function sendGet(url, options) {
     })
 }
 
-// function sendGet(url, options, callback) {
-//     options.uri = url;
-//     options.method = "GET";
-//     sendRequest(options, callback);
-// }
-
 exports.POST = sendPost;
 function sendPost(url, options) {
-    // sendRequest(options, callback);
     return new Promise(function (resolve, reject) {
         options.uri = url;
         options.method = "POST";

@@ -4,9 +4,9 @@ const captchautil = require("./captchautil");
 const simplehttp = require("./simplehttp");
 const users = require("./users");
 console.log(users)
-const user = 'yjh';
+const user = 'coolinker';
 
-const BuyPriceMax = 16000, BuyPriceMin = 0;
+const BuyPriceMax = 26000, BuyPriceMin = 0;
 process.setMaxListeners(0);
 let Network_responseReceived = null;
 
@@ -128,7 +128,7 @@ async function doLogin(DOM, Page, Network, Runtime) {
   const image = await Base64ToImageNArray(data.body, 'image/jpeg');
 
   await Runtime.evaluate({
-    expression: "document.querySelector('#userNameLogin').value='" + users[user].phone + "';"
+    expression: "document.querySelector('#userNameLogin').value='" + users[user].name + "';"
   });
 
   await Runtime.evaluate({
@@ -316,7 +316,7 @@ async function listTransferM3024(Page, DOM, Network) {
   options.form = {
     requestCode: "M3024",
     version: "3.4.9",
-    params: '{"cookieUserName":"","readListType":"trans_p2p","filterBeginInvestPeriodInDay":"10","width":720,"listType":"trans_p2p","pageSize":"15","ver":"1","isForNewUser":"false","productSortType":"INTEREST_RATE_DESC","forNewUser":"false","pageIndex":"1","filterEndTransPrice":"' + 1 + '","source":"android","filterBeginTransPrice":"0.2","currentPage":"1"}'
+    params: '{"cookieUserName":"","readListType":"trans_p2p","filterBeginInvestPeriodInDay":"10","width":720,"listType":"trans_p2p","pageSize":"15","ver":"1","isForNewUser":"false","productSortType":"INTEREST_RATE_DESC","forNewUser":"false","pageIndex":"1","filterEndTransPrice":"' + 2.6 + '","source":"android","filterBeginTransPrice":"0.2","currentPage":"1"}'
   };
 
   options.headers = {
@@ -344,6 +344,7 @@ async function listTransferM3024(Page, DOM, Network) {
   if (bodyJson.code === "0000" && bodyJson.result.totalCount > 0) {
     const prds = bodyJson.result.products[0].productList;
     for (let i = 0; i < prds.length; i++) {
+      console.log(prds[i].productStatus, Number(prds[i].interestRate), prds[i].price )
       if (prds[i].productStatus === 'ONLINE' && Number(prds[i].interestRate) >= 0.084 && prds[i].price > BuyPriceMin && prds[i].price < BuyPriceMax) {
         console.log("---", prds[i]);
         return prds[i].id;
@@ -359,11 +360,11 @@ async function listTransfer(Page, DOM, Network) {
   console.log("listTransfer...")
   //await navigate(Page, 'https://list.lu.com/list/transfer-p2p?minMoney=' + BuyPriceMin + '&maxMoney=' + BuyPriceMax + '&minDays=&maxDays=&minRate=&maxRate=&mode=&tradingMode=&isOverdueTransfer=&isCx=&currentPage=1&orderCondition=&isShared=&canRealized=&productCategoryEnum=&notHasBuyFeeRate=&riskLevel=');
   //const transferlist = await simplehttp.GET('https://list.lu.com/list/transfer-p2p?minMoney=' + BuyPriceMin + '&maxMoney=' + BuyPriceMax + '&minDays=&maxDays=&minRate=&maxRate=&mode=&tradingMode=&isOverdueTransfer=&isCx=&currentPage=1&orderCondition=&isShared=&canRealized=&productCategoryEnum=&notHasBuyFeeRate=&riskLevel=');
-  await navigateUntilResponse(Page, Network, 'https://list.lu.com/list/transfer-p2p?minMoney=' + BuyPriceMin + '&maxMoney=' + BuyPriceMax + '&minDays=&maxDays=&minRate=&maxRate=&mode=&tradingMode=&isOverdueTransfer=&isCx=&currentPage=1&orderCondition=&isShared=&canRealized=&productCategoryEnum=&notHasBuyFeeRate=&riskLevel='
-    , ['https://list.lu.com/list/transfer-p2p?']);
+  await navigate(Page, 'https://list.lu.com/list/transfer-p2p?minMoney=' + BuyPriceMin + '&maxMoney=' + BuyPriceMax + '&minDays=&maxDays=&minRate=&maxRate=&mode=&tradingMode=&isOverdueTransfer=&isCx=&currentPage=1&orderCondition=&isShared=&canRealized=&productCategoryEnum=&notHasBuyFeeRate=&riskLevel=');
 
   console.log("listTransfer...finished", new Date() - s)
   const { root: { nodeId: documentNodeId } } = await DOM.getDocument();
+  
   const { nodeIds: itemNodeIds } = await DOM.querySelectorAll({
     selector: 'li.product-list.has-bottom.transfer-list.clearfix',
     nodeId: documentNodeId,
@@ -410,22 +411,22 @@ chrome(async protocol => {
     DOM.enable()
   ]);//.then(() => {
 
-  await doLogin(DOM, Page, Network, Runtime);
+  //await doLogin(DOM, Page, Network, Runtime);
 
   let pid = null;
   let lpid = null;
   do {
     const s = new Date();
-    await timeout(100);
+    await timeout(1000);
     pid = await listTransferM3024(Page, DOM, Network);
-    await timeout(500);
-    if (!pid) pid = await listTransfer(Page, DOM, Network);
-    await timeout(100);
-    if (!pid) pid = await listTransfer(Page, DOM, Network);
-    await timeout(100);
-    if (!pid) pid = await listTransferM3024(Page, DOM, Network);
-    await timeout(500);
-    if (!pid) pid = await listTransfer(Page, DOM, Network);
+    // await timeout(500);
+    // if (!pid) pid = await listTransfer(Page, DOM, Network);
+    // await timeout(100);
+    // if (!pid) pid = await listTransfer(Page, DOM, Network);
+    // await timeout(100);
+    // if (!pid) pid = await listTransferM3024(Page, DOM, Network);
+    // await timeout(500);
+    // if (!pid) pid = await listTransfer(Page, DOM, Network);
     //if (!pid) pid = await listTransfer(Page, DOM, Network);
     console.log("\nlistTransfer", pid, new Date() - s);
 
