@@ -10,7 +10,7 @@ const users = require("./users");
 const RSAKey = require('./rsa.js');
 
 const CAN_UPDATE_IP = process.argv[3] === 'updateip'; 
-const STOP_INTERVAL = 20*60*1000;
+const STOP_INTERVAL = 5*60*1000;
 
 
 let BuyPriceMax = 0.8, BuyPriceMin = 0.2;
@@ -273,7 +273,7 @@ async function login(user) {
     user.rsakey = rsakey;
 
     user.loginTime = new Date();
-
+    console.log("loginTime", user.loginTime)
     return user;
 }
 
