@@ -9,11 +9,16 @@ const pppoeutil = require("./pppoeutil");
 const users = require("./users");
 const RSAKey = require('./rsa.js');
 
+const CAN_UPDATE_IP = process.argv[3] === 'updateip'; 
+const STOP_INTERVAL = 20*60*1000;
+
+
 let BuyPriceMax = 0.8, BuyPriceMin = 0.2;
 
 var maxPrice = process.argv[2];
 if (maxPrice) BuyPriceMax = Number(maxPrice);
-console.log("BuyPriceMax", BuyPriceMax);
+
+console.log("BuyPriceMax", BuyPriceMax, "CAN_UPDATE_IP", CAN_UPDATE_IP);
 
 function randomNumber() {
     return Math.round(Math.random() * 100000);
@@ -61,8 +66,13 @@ async function investCheck(pid, price, user) {
         "cookieJar": user.jar
     });
     console.log("investCheck", body)
-    const data = JSON.parse(body).data;
-    return data.sid?data:null;
+    try {
+        const data = JSON.parse(body).data;
+        return data.sid ? data : null;
+    } catch (e) {
+        return null;
+    }
+
 }
 
 async function checkTrace(sid, pid, user, step) {
@@ -117,8 +127,8 @@ async function crackTradingCaptcha(sid, pid, user) {
         + captchaStr + '&sid=' + sid + '&imgId=' + imageId + '&_=' + new Date().getTime(), {
             "cookieJar": user.jar
         });
-
-    return preck.body && JSON.parse(preck.body).result === 'SUCCESS' ? {captchaStr, imageId} : null;
+    console.log("preck:", preck.body)
+    return preck.body && JSON.parse(preck.body).result === 'SUCCESS' ? { captchaStr, imageId } : null;
 }
 
 async function investmentRequest(sid, pid, user, captcha, imageId, paymentMethod) {
@@ -141,22 +151,21 @@ async function investmentRequest(sid, pid, user, captcha, imageId, paymentMethod
     return body;
 }
 
-async function getBalanceInfo(user){
-     const {err, res, body} = await simplehttp.GET('https://my.lu.com/my/account', {
-         "cookieJar": user.jar
-     });
+async function getBalanceInfo(user) {
+    const { err, res, body } = await simplehttp.GET('https://my.lu.com/my/account', {
+        "cookieJar": user.jar
+    });
 
-     const availablePrt = htmlparser.getValueFromBody('<h3 class="coin-point-item-header">可用余额</h3>', '元', body);
-     let available = htmlparser.getValueFromBody('class="coin-point-item-number security-mark-hide">', '</span>', availablePrt);
-     user.available = Number(available.replace(',', ''));
-            
-     const lhbPrt = htmlparser.getValueFromBody('<h3 class="coin-point-item-header"> 零活宝T+0 </h3>', '元', body);
-     let lhb = htmlparser.getValueFromBody('class="coin-point-item-number security-mark-hide">', '</span>', lhbPrt);
-     lhb = Number(lhb.trim().replace(',', ''));
-     user.lhb = lhb;
+    const availablePrt = htmlparser.getValueFromBody('<h3 class="coin-point-item-header">可用余额</h3>', '元', body);
+    let available = htmlparser.getValueFromBody('class="coin-point-item-number security-mark-hide">', '</span>', availablePrt);
+    user.available = Number(available.replace(',', ''));
 
-     user.updatedInfoTime = new Date();
-     console.log("user info updated:", user.available, lhb)
+    const lhbPrt = htmlparser.getValueFromBody('<h3 class="coin-point-item-header"> 零活宝T+0 </h3>', '元', body);
+    let lhb = htmlparser.getValueFromBody('class="coin-point-item-number security-mark-hide">', '</span>', lhbPrt);
+    lhb = Number(lhb.trim().replace(',', ''));
+    user.lhb = lhb;
+
+    console.log("user info updated:", user.available, lhb)
 }
 
 let lastProductId;
@@ -184,8 +193,12 @@ async function listTransferM3024() {
 
     if (bodyJson.code !== "0000") {
         console.log(new Date(), rsp.body);
-        //await timeout(15 * 60 * 1000);
-        await pppoeutil.updateIP();
+        if (CAN_UPDATE_IP) {
+            await pppoeutil.updateIP();
+        } else {
+            await timeout(STOP_INTERVAL);
+        }
+
         return null;
     }
 
@@ -207,11 +220,10 @@ async function listTransferM3024() {
     return null;
 }
 
-async function login(username, jar) {
-    const user = users[username];
-    const cookieJar = jar || request.jar();
-    const rsakey = new RSAKey();
-    
+async function login(user) {
+    const cookieJar = user.jar || request.jar();
+    const rsakey = user.rsakey || new RSAKey();
+
     const { err, res, body } = await simplehttp.GET('https://user.lu.com/user/login', {
         "cookieJar": cookieJar
     });
@@ -221,14 +233,24 @@ async function login(username, jar) {
     rsakey.setPublic(publicKey, rsaExponent);
     const cncryptPassword = rsakey.encrypt(user.password);
 
-    let success = false, captchaStr;
-    do {
+    const cap_authorize = await simplehttp.POST('https://user.lu.com/user/service/login/captcha-authorize', {
+        form: {
+            source: 'PC',
+            username: user.name
+        },
+        "cookieJar": cookieJar
+    });
+
+    let auth = 'false' === JSON.parse(cap_authorize.body).captcha;
+    let captchaStr = '';
+    while (!auth) {
         console.log("process captcha...")
         const img = await getCaptchaBySource('login', cookieJar);
         captchaStr = captchautil.crackCaptcha(img);
-        success = await captchaPreCheck(captchaStr, cookieJar);
-        console.log("------------captchaPreCheck", captchaStr, success)
-    } while (!success);
+        auth = await captchaPreCheck(captchaStr, cookieJar);
+
+        console.log("------------captchaPreCheck", captchaStr, auth)
+    }
 
     const { err: err1, res: res1, body: json } = await simplehttp.POST('https://user.lu.com/user/login', {
         form: {
@@ -249,6 +271,9 @@ async function login(username, jar) {
     user.jar = cookieJar;
     user.id = JSON.parse(json).userId;
     user.rsakey = rsakey;
+
+    user.loginTime = new Date();
+
     return user;
 }
 
@@ -261,20 +286,24 @@ function cookieLuToP2p(user) {
     }
 }
 
-async function start(user) {
-    let product, c = 0;
+async function start(username) {
+    let product, c = 0, pc = 0, sc = 0;
+    let user = users[username];
 
     do {
-        if (!user.updatedInfoTime || new Date() - user.updatedInfoTime > 10*60*1000) {
-            getBalanceInfo(user);
+        if (!user.loginTime || new Date() - user.loginTime > 15 * 60 * 1000) {
+            await login(user);
+            await getBalanceInfo(user);
         }
 
-        await timeout(1000);
+        await timeout(500);
         product = await listTransferM3024();
-        c++;
-        if (c%10 === 0) console.log(c, "***", product ? product.id : '');
 
-        if (product) {
+        c++;
+        if (c % 30 === 0) console.log(c, "***", sc + '/' + pc);
+
+        if (product && product.price <= (user.available + user.lhb)) {
+            pc++;
             const s = new Date();
             const invck = await investCheck(product.id, product.price, user);
 
@@ -306,12 +335,22 @@ async function start(user) {
 
             const crack = await crackTradingCaptcha(sid, product.id, user);
             console.log("crack", crack, new Date() - s, 'ms')
-            
+
             if (!crack) continue;
-            
-            const rel = await investmentRequest(sid, product.id, user, crack.captchaStr, crack.imageId, paymentMethod);
-            console.log(rel)
-            timeout(5000)
+
+            const invRes = await investmentRequest(sid, product.id, user, crack.captchaStr, crack.imageId, paymentMethod);
+            console.log(invRes)
+            const invResJson = JSON.parse(invRes);
+
+            // {"code":"09","apiCode":"400009","message":"其他原因失败","locked":false,"needWithholding":false,"isRiskLevelMatch":false,"isCan
+            // "riskVerifyLeftCount":0,"riskVerifyTotalCount":0,"virutalPartialInavailProductIdList":[],"isRiskVerifySysDefine":false,"virutal
+            // mesList":[]}
+            if (invResJson.code === '00') {
+                sc++;
+                user.available -= product.price;
+            }
+
+            timeout(2000)
         }
     } while (true);
 
@@ -321,9 +360,7 @@ async function start(user) {
 
 async function main() {
     // await pppoeutil.updateIP();
-
-    const user = await login("yang_jianhua");
-    await start(user);
+    await start("yang_jianhua");
 }
 
 main();
