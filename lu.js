@@ -5,12 +5,16 @@ const simplehttp = require("./simplehttp");
 const htmlparser = require('./htmlparser');
 const mobileheaderutil = require("./mobileheaderutil");
 const pppoeutil = require("./pppoeutil");
+//const fingerprint = require("./fp");
+
+//let info = fingerprint.getAesEncriptedFingerPrintInfo();
+
 
 const users = require("./users");
 const RSAKey = require('./rsa.js');
 
-const CAN_UPDATE_IP = process.argv[3] === 'updateip'; 
-const STOP_INTERVAL = 5*60*1000;
+const CAN_UPDATE_IP = process.argv[3] === 'updateip';
+const STOP_INTERVAL = 5 * 60 * 1000;
 
 
 let BuyPriceMax = 0.8, BuyPriceMin = 0.2;
@@ -85,7 +89,6 @@ async function checkTrace(sid, pid, user, step) {
     return body === 'true';
 }
 
-
 async function tradeTrace(sid, pid, user, step, timeout) {
     const { err, res, body } = await simplehttp.POST("https://www.lup2p.com/trading/service/trade/trace", {
         "timeout": timeout ? timeout : 10000,
@@ -100,7 +103,17 @@ async function tradeTrace(sid, pid, user, step, timeout) {
         }
     });
     console.log("tradeTrace", step, err, body)
-    return body ? JSON.parse(body).result : null;
+
+    if (err) return null;
+
+    try {
+        return JSON.parse(body).result
+    } catch (e) {
+        console.log('step', body)
+        return false;
+    }
+
+    //return body ? JSON.parse(body).result : null;
 }
 
 async function crackTradingCaptcha(sid, pid, user) {
@@ -168,7 +181,7 @@ async function getBalanceInfo(user) {
     console.log("user info updated:", user.available, lhb)
 }
 
-let lastProductId;
+const productIds = {};
 async function listTransferM3024() {
     //console.log("listTransferM3024...")
     const options = {};
@@ -206,12 +219,11 @@ async function listTransferM3024() {
         const prds = bodyJson.result.products[0].productList;
         for (let i = 0; i < prds.length; i++) {
             // console.log(prds[i].productStatus, prds[i].price, prds[i].price<6000, prds[i].interestRate)
-            if (prds[i].productStatus === 'ONLINE' && Number(prds[i].interestRate) >= 0.084 && prds[i].price > 10000 * BuyPriceMin && prds[i].price < 10000 * BuyPriceMax) {
+            if (!productIds[prds[i].id] && Number(prds[i].interestRate) >= 0.084 && prds[i].price > 10000 * BuyPriceMin && prds[i].price < 10000 * BuyPriceMax) {
                 console.log("---", prds[i].productStatus, prds[i].price, prds[i].id);
-                if (lastProductId !== prds[i].id) {
-                    lastProductId = prds[i].id;
-                    return prds[i];
-                }
+                productIds[prds[i].id] = true;
+                if (prds[i].productStatus !== 'ONLINE') return null;
+                return prds[i];
 
             }
         }
@@ -296,7 +308,7 @@ async function start(username) {
             await getBalanceInfo(user);
         }
 
-        await timeout(500);
+        await timeout(200);
         product = await listTransferM3024();
 
         c++;
@@ -304,58 +316,68 @@ async function start(username) {
 
         if (product && product.price <= (user.available + user.lhb)) {
             pc++;
-            const s = new Date();
-            const invck = await investCheck(product.id, product.price, user);
 
-            //"TRADE_INFO" "CONTRACT" "OTP"
-            console.log("sid==", invck, new Date() - s, 'ms');
-            if (!invck) continue;
-            const sid = invck.sid;
-            const paymentMethod = invck.paymentMethod;
-            cookieLuToP2p(user);
-            // crackTradingCaptcha(sid, product.id, user).then((crk) =>
-            //     console.log("000000000===========", crk)
-            // );
-            //if (!crack) continue;
-            //const ct = await checkTrace(sid, product.id, user, 'TRADE_INFO');
-            //console.log("ct==", ct, new Date() - s);
-
-            const tradeinfo = await tradeTrace(sid, product.id, user, 'TRADE_INFO', 10000);
-            console.log("TRADE_INFO", new Date() - s, 'ms');
-            if (tradeinfo === false) continue;
-            const contract = await tradeTrace(sid, product.id, user, 'CONTRACT', 10000);
-            console.log("CONTRACT", new Date() - s, 'ms');
-            if (contract === false) continue;
-            //const otpct = await checkTrace(sid, product.id, user, 'OTP');
-            //console.log("otpct==", otpct, new Date()-s);
-
-            const otp = await tradeTrace(sid, product.id, user, 'OTP', 10000);
-            console.log("otp", new Date() - s, 'ms')
-            if (otp === false) continue;
-
-            const crack = await crackTradingCaptcha(sid, product.id, user);
-            console.log("crack", crack, new Date() - s, 'ms')
-
-            if (!crack) continue;
-
-            const invRes = await investmentRequest(sid, product.id, user, crack.captchaStr, crack.imageId, paymentMethod);
-            console.log(invRes)
-            const invResJson = JSON.parse(invRes);
-
-            // {"code":"09","apiCode":"400009","message":"其他原因失败","locked":false,"needWithholding":false,"isRiskLevelMatch":false,"isCan
-            // "riskVerifyLeftCount":0,"riskVerifyTotalCount":0,"virutalPartialInavailProductIdList":[],"isRiskVerifySysDefine":false,"virutal
-            // mesList":[]}
-            if (invResJson.code === '00') {
+            const suc = await checkToInvest(product, user);
+            if (suc) {
                 sc++;
-                user.available -= product.price;
+                await timeout(2000);
             }
-
-            timeout(2000)
         }
     } while (true);
 
+}
 
+async function checkToInvest(product, user) {
+    const s = new Date();
+    const invck = await investCheck(product.id, product.price, user);
 
+    //"TRADE_INFO" "CONTRACT" "OTP"
+    console.log("sid==", invck, new Date() - s, 'ms');
+    if (!invck) return false;
+    const sid = invck.sid;
+    const paymentMethod = invck.paymentMethod;
+    cookieLuToP2p(user);
+
+    console.log("start trace", new Date() - s, 'ms');
+
+    //const tradeinfo = await tradeTrace(sid, product.id, user, 'TRADE_INFO', 80);
+    tradeTrace(sid, product.id, user, 'TRADE_INFO').then(info => {
+        console.log("TRADE_INFO", new Date() - s, 'ms');
+    });
+    console.log("before TRADE_INFO")
+    await timeout(20);
+    //if (tradeinfo === false) continue;
+    //const contract = await tradeTrace(sid, product.id, user, 'CONTRACT', 80);
+    tradeTrace(sid, product.id, user, 'CONTRACT').then(info => {
+        console.log("CONTRACT", new Date() - s, 'ms');
+    })
+    console.log("before CONTRACT")
+    await timeout(20);
+    //if (contract === false) continue;
+
+    console.log("before OTP", new Date() - s, 'ms')
+    const otp = await tradeTrace(sid, product.id, user, 'OTP', 10000);
+    console.log("otp", new Date() - s, 'ms')
+    if (otp === false) return false;
+
+    const crack = await crackTradingCaptcha(sid, product.id, user);
+    console.log("crack", crack, new Date() - s, 'ms')
+
+    if (!crack) return false;
+
+    const invRes = await investmentRequest(sid, product.id, user, crack.captchaStr, crack.imageId, paymentMethod);
+    console.log(invRes)
+    const invResJson = JSON.parse(invRes);
+
+    // {"code":"09","apiCode":"400009","message":"其他原因失败","locked":false,"needWithholding":false,"isRiskLevelMatch":false,"isCan
+    // "riskVerifyLeftCount":0,"riskVerifyTotalCount":0,"virutalPartialInavailProductIdList":[],"isRiskVerifySysDefine":false,"virutal
+    // mesList":[]}
+    if (invResJson.code === '01') {
+        user.available -= product.price;
+        return true;
+    }
+
+    return false;
 }
 
 async function main() {
