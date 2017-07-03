@@ -44,7 +44,7 @@ async function listTransferM3024() {
     try {
         bodyJson = JSON.parse(rsp.body);
     } catch (e) {
-        console.log(rsp.body);
+        console.log("error", rsp.body, rsp.err);
         return null;
     }
 
@@ -78,7 +78,7 @@ async function serverLoop(interval, cb, errcb){
 
 exports.loop = loop;
 async function loop(interval, cb, errcb) {
-    console.log("transfer job start looping", BuyPriceMin, BuyPriceMax);
+    console.log("transfer job start looping", BuyPriceMin, BuyPriceMax, interval);
     let product, c = 0, pc = 0, sc = 0;
 
     do {

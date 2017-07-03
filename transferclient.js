@@ -3,7 +3,7 @@ const pppoeutil = require("./pppoeutil");
 
 const CAN_UPDATE_IP = true;
 const STOP_INTERVAL = 5 * 60 * 1000;
-const LOOP_INTERVAL = 100;
+const LOOP_INTERVAL = 10;
 
 let priceMax = process.argv[2];
 priceMax = priceMax ? Number(priceMax) : null;

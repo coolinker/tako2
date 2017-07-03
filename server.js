@@ -17,7 +17,6 @@ module.exports = actionHandlers;
 function handleApiRequest(request, response) {
     const query = url.parse(request.url, true).query;
     const action = query.action;
-    console.log("handleApiRequest", action);
     if (!actionHandlers[action]) return false;
     if (request.method == 'POST') {
         let jsonString = '';
@@ -31,7 +30,6 @@ function handleApiRequest(request, response) {
                 response.writeHead(200, {
                     "Content-Type": "application/x-javascript; charset=utf-8"
                 });
-                console.log("output", output)
                 response.write(output);
                 response.end();
             });

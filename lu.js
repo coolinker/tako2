@@ -13,13 +13,17 @@ const pppoeutil = require("./pppoeutil");
 const users = require("./users");
 const RSAKey = require('./rsa.js');
 
-const CAN_UPDATE_IP = process.argv[3] === 'updateip';
+const CAN_UPDATE_IP = false;
 const STOP_INTERVAL = 5 * 60 * 1000;
+const LOOP_INTERVAL = process.argv[3]? Number(process.argv[3]): 500;
 
-let BuyPriceMax = 0.8, BuyPriceMin = 0.2;
-
+let BuyPriceMax = 0.8;
 let maxPrice = process.argv[2];
 if (maxPrice) BuyPriceMax = Number(maxPrice);
+
+console.log("LOOP_INTERVAL:", LOOP_INTERVAL, "BuyPriceMax", BuyPriceMax);
+
+const transferJob = require('./transfer').config({BuyPriceMax: BuyPriceMax});
 
 let INVEST_LOCKED = false;
 let CURRENT_USER;
@@ -183,56 +187,6 @@ async function getBalanceInfo(user) {
     console.log("user info updated:", user.available, lhb)
 }
 
-const productIds = {};
-async function listTransferM3024() {
-    //console.log("listTransferM3024...")
-    const options = {};
-    options.form = {
-        requestCode: "M3024",
-        version: "3.4.9",
-        params: '{"cookieUserName":"","readListType":"trans_p2p","filterBeginInvestPeriodInDay":"10","width":720,"listType":"trans_p2p","pageSize":"15","ver":"1","isForNewUser":"false","productSortType":"INTEREST_RATE_DESC","forNewUser":"false","pageIndex":"1","filterEndTransPrice":"'
-        + BuyPriceMax + '","source":"android","filterBeginTransPrice":"' + BuyPriceMin + '","currentPage":"1"}'
-    };
-
-    options.headers = mobileheaderutil.getHeaders();
-
-    const rsp = await simplehttp.POST('https://ma.lu.com/mapp/service/public?M3024&listType=trans_p2p?_' + randomNumber(), options);
-
-    let bodyJson;
-    try {
-        bodyJson = JSON.parse(rsp.body);
-    } catch (e) {
-        console.log(rsp.body);
-        return null;
-    }
-
-    if (bodyJson.code !== "0000") {
-        console.log(new Date(), rsp.body);
-        if (CAN_UPDATE_IP) {
-            await pppoeutil.updateIP();
-        } else {
-            await timeout(STOP_INTERVAL);
-        }
-        return null;
-    }
-
-    if (bodyJson.code === "0000" && bodyJson.result.totalCount > 0) {
-        const prds = bodyJson.result.products[0].productList;
-        for (let i = 0; i < prds.length; i++) {
-            // console.log(prds[i].productStatus, prds[i].price, prds[i].price<6000, prds[i].interestRate)
-            if (!productIds[prds[i].id] && Number(prds[i].interestRate) >= 0.084 && prds[i].price > 10000 * BuyPriceMin && prds[i].price < 10000 * BuyPriceMax) {
-                console.log("---", prds[i].productStatus, prds[i].price, prds[i].id);
-                productIds[prds[i].id] = true;
-                if (prds[i].productStatus !== 'ONLINE') return null;
-                return prds[i];
-
-            }
-        }
-    }
-
-    return null;
-}
-
 async function login(user) {
     const cookieJar = user.jar || request.jar();
     const rsakey = user.rsakey || new RSAKey();
@@ -361,38 +315,6 @@ async function checkToInvest(product, user) {
     return refun(false);
 }
 
-// async function start(username) {
-//     let product, c = 0, pc = 0, sc = 0;
-//     let user = CURRENT_USER = users[username];
-
-//     do {
-//         if (!user.loginTime || new Date() - user.loginTime > 15 * 60 * 1000) {
-//             await login(user);
-//             await getBalanceInfo(user);
-//         }
-
-//         await timeout(200);
-//         product = await listTransferM3024();
-
-//         c++;
-//         if (c % 30 === 0) console.log(c, "***", sc + '/' + pc);
-
-//         if (product && product.price <= (user.available + user.lhb)) {
-//             pc++;
-
-//             const suc = await checkToInvest(product, user);
-//             if (suc) {
-//                 sc++;
-//                 await timeout(2000);
-//             }
-//         }
-//     } while (true);
-
-// }
-
-//start("yang_jianhua");
-
-const transferJob = require('./transfer');
 
 async function updateLogin(user) {
     if (pppoeutil.connected() && (!user.loginTime || new Date() - user.loginTime > 15 * 60 * 1000)) {
@@ -404,8 +326,7 @@ async function updateLogin(user) {
 async function main(username) {
     let user = CURRENT_USER = users[username];
     let pc = 0, sc = 0;
-    transferJob.serverLoop(300000, async function (product) {
-        console.log("------------------recieved:", product.id, product.price)
+    transferJob.serverLoop(LOOP_INTERVAL, async function (product) {
         if (product && product.price < BuyPriceMax*10000 && product.price <= (user.available + user.lhb)) {
             pc++;
 
