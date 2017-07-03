@@ -5,10 +5,10 @@ const simplehttp = require("./simplehttp");
 const htmlparser = require('./htmlparser');
 const mobileheaderutil = require("./mobileheaderutil");
 const pppoeutil = require("./pppoeutil");
+
 //const fingerprint = require("./fp");
 
 //let info = fingerprint.getAesEncriptedFingerPrintInfo();
-
 
 const users = require("./users");
 const RSAKey = require('./rsa.js');
@@ -16,13 +16,15 @@ const RSAKey = require('./rsa.js');
 const CAN_UPDATE_IP = process.argv[3] === 'updateip';
 const STOP_INTERVAL = 5 * 60 * 1000;
 
-
 let BuyPriceMax = 0.8, BuyPriceMin = 0.2;
 
-var maxPrice = process.argv[2];
+let maxPrice = process.argv[2];
 if (maxPrice) BuyPriceMax = Number(maxPrice);
 
-console.log("BuyPriceMax", BuyPriceMax, "CAN_UPDATE_IP", CAN_UPDATE_IP);
+let INVEST_LOCKED = false;
+let CURRENT_USER;
+const checkedInvest = {};
+//console.log("BuyPriceMax", BuyPriceMax, "CAN_UPDATE_IP", CAN_UPDATE_IP);
 
 function randomNumber() {
     return Math.round(Math.random() * 100000);
@@ -211,7 +213,6 @@ async function listTransferM3024() {
         } else {
             await timeout(STOP_INTERVAL);
         }
-
         return null;
     }
 
@@ -298,72 +299,52 @@ function cookieLuToP2p(user) {
     }
 }
 
-async function start(username) {
-    let product, c = 0, pc = 0, sc = 0;
-    let user = users[username];
-
-    do {
-        if (!user.loginTime || new Date() - user.loginTime > 15 * 60 * 1000) {
-            await login(user);
-            await getBalanceInfo(user);
-        }
-
-        await timeout(200);
-        product = await listTransferM3024();
-
-        c++;
-        if (c % 30 === 0) console.log(c, "***", sc + '/' + pc);
-
-        if (product && product.price <= (user.available + user.lhb)) {
-            pc++;
-
-            const suc = await checkToInvest(product, user);
-            if (suc) {
-                sc++;
-                await timeout(2000);
-            }
-        }
-    } while (true);
-
-}
-
 async function checkToInvest(product, user) {
+    if (INVEST_LOCKED) {
+        console.log("Invest locked", product.id, product.price)
+        return false;
+    }
+
+    INVEST_LOCKED = true;
+    const refun = function (b) {
+        INVEST_LOCKED = false;
+        return b;
+    }
+
+    // if (checkedInvest[priduct.id]) {
+    //     console.log("Try to check invest again!", product.id)
+    //     return refun(false);
+    // }
+
+    // checkedInvest[priduct.id] = true;
+
     const s = new Date();
     const invck = await investCheck(product.id, product.price, user);
 
     //"TRADE_INFO" "CONTRACT" "OTP"
     console.log("sid==", invck, new Date() - s, 'ms');
-    if (!invck) return false;
+    if (!invck) return refun(false);
     const sid = invck.sid;
     const paymentMethod = invck.paymentMethod;
     cookieLuToP2p(user);
 
     console.log("start trace", new Date() - s, 'ms');
 
-    //const tradeinfo = await tradeTrace(sid, product.id, user, 'TRADE_INFO', 80);
-    tradeTrace(sid, product.id, user, 'TRADE_INFO').then(info => {
-        console.log("TRADE_INFO", new Date() - s, 'ms');
-    });
-    console.log("before TRADE_INFO")
-    await timeout(20);
-    //if (tradeinfo === false) continue;
-    //const contract = await tradeTrace(sid, product.id, user, 'CONTRACT', 80);
-    tradeTrace(sid, product.id, user, 'CONTRACT').then(info => {
-        console.log("CONTRACT", new Date() - s, 'ms');
-    })
-    console.log("before CONTRACT")
-    await timeout(20);
-    //if (contract === false) continue;
+    const tradeinfo = await tradeTrace(sid, product.id, user, 'TRADE_INFO');
+    if (tradeinfo === false) return refun(false);
+
+    const contract = await tradeTrace(sid, product.id, user, 'CONTRACT');
+    if (contract === false) return refun(false);
 
     console.log("before OTP", new Date() - s, 'ms')
-    const otp = await tradeTrace(sid, product.id, user, 'OTP', 10000);
+    const otp = await tradeTrace(sid, product.id, user, 'OTP');
     console.log("otp", new Date() - s, 'ms')
-    if (otp === false) return false;
+    if (otp === false) return refun(false);
 
     const crack = await crackTradingCaptcha(sid, product.id, user);
     console.log("crack", crack, new Date() - s, 'ms')
 
-    if (!crack) return false;
+    if (!crack) return refun(false);
 
     const invRes = await investmentRequest(sid, product.id, user, crack.captchaStr, crack.imageId, paymentMethod);
     console.log(invRes)
@@ -374,16 +355,83 @@ async function checkToInvest(product, user) {
     // mesList":[]}
     if (invResJson.code === '01') {
         user.available -= product.price;
-        return true;
+        return refun(true);
     }
 
-    return false;
+    return refun(false);
 }
 
-async function main() {
-    // await pppoeutil.updateIP();
-    await start("yang_jianhua");
+// async function start(username) {
+//     let product, c = 0, pc = 0, sc = 0;
+//     let user = CURRENT_USER = users[username];
+
+//     do {
+//         if (!user.loginTime || new Date() - user.loginTime > 15 * 60 * 1000) {
+//             await login(user);
+//             await getBalanceInfo(user);
+//         }
+
+//         await timeout(200);
+//         product = await listTransferM3024();
+
+//         c++;
+//         if (c % 30 === 0) console.log(c, "***", sc + '/' + pc);
+
+//         if (product && product.price <= (user.available + user.lhb)) {
+//             pc++;
+
+//             const suc = await checkToInvest(product, user);
+//             if (suc) {
+//                 sc++;
+//                 await timeout(2000);
+//             }
+//         }
+//     } while (true);
+
+// }
+
+//start("yang_jianhua");
+
+const transferJob = require('./transfer');
+
+async function updateLogin(user) {
+    if (pppoeutil.connected() && (!user.loginTime || new Date() - user.loginTime > 15 * 60 * 1000)) {
+        await login(user);
+        await getBalanceInfo(user);
+    }
 }
 
-main();
+async function main(username) {
+    let user = CURRENT_USER = users[username];
+    let pc = 0, sc = 0;
+    transferJob.serverLoop(300000, async function (product) {
+        console.log("------------------recieved:", product.id, product.price)
+        if (product && product.price < BuyPriceMax*10000 && product.price <= (user.available + user.lhb)) {
+            pc++;
+
+            const suc = await checkToInvest(product, user);
+            if (suc) {
+                sc++;
+            }
+        }
+    }, async (errCode) => {
+        await timeout(STOP_INTERVAL);
+    });
+
+    while (user) {
+        await updateLogin(user);
+        await timeout(30000);
+
+    }
+
+}
+
+main('yang_jianhua');
+
+const serverActionHandlers = require("./server");
+serverActionHandlers.produce = function (prm, cb) {
+    console.log("server recieved product", prm);
+    transferJob.addProductFromExternal(prm);
+    cb('produce api finished:' + prm);
+}
 

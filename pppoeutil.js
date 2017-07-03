@@ -1,10 +1,17 @@
-var simplehttp = require('./simplehttp');
-var htmlparser = require('./htmlparser');
-var TestData = require('./users');
+const simplehttp = require('./simplehttp');
+const htmlparser = require('./htmlparser');
+const TestData = require('./users');
 
+let connectFlag = true;
+const RECONNECT_DELAY = 40000;
 
 function timeout(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+exports.connected = connected;
+function connected(){
+    return connectFlag;
 }
 
 exports.updateIP = updateIP;
@@ -26,7 +33,7 @@ async function updateIP() {
     }
     
     console.log("updateIP id", id);
-
+    connectFlag = false;
     await simplehttp.POST(TestData.pppoe.url_1 + id, {
         headers: { "Authorization": "Basic " + bstr },
         form: {
@@ -68,6 +75,7 @@ async function updateIP() {
         }
     });
 
-    await timeout(60000);
+    await timeout(RECONNECT_DELAY);
+    connectFlag = true;
     console.log("updateIP finished")
 }
