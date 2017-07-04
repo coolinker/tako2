@@ -75,11 +75,11 @@ async function investCheck(pid, price, user) {
         },
         "cookieJar": user.jar
     });
-    console.log("investCheck", body)
     try {
         const data = JSON.parse(body).data;
         return data.sid ? data : null;
     } catch (e) {
+        console.log("investCheck", body)
         return null;
     }
 
@@ -276,7 +276,7 @@ async function checkToInvest(product, user) {
     const invck = await investCheck(product.id, product.price, user);
 
     //"TRADE_INFO" "CONTRACT" "OTP"
-    console.log("sid==", invck, new Date() - s, 'ms');
+    console.log("sid==", invck.sid, new Date() - s, 'ms');
     if (!invck) return refun(false);
     const sid = invck.sid;
     const paymentMethod = invck.paymentMethod;
@@ -301,7 +301,7 @@ async function checkToInvest(product, user) {
     if (!crack) return refun(false);
 
     const invRes = await investmentRequest(sid, product.id, user, crack.captchaStr, crack.imageId, paymentMethod);
-    console.log(invRes)
+    console.log(invRes, '\n\n');
     const invResJson = JSON.parse(invRes);
 
     // {"code":"09","apiCode":"400009","message":"其他原因失败","locked":false,"needWithholding":false,"isRiskLevelMatch":false,"isCan
