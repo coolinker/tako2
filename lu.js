@@ -318,8 +318,10 @@ async function checkToInvest(product, user) {
 
 async function updateLogin(user) {
     if (pppoeutil.connected() && (!user.loginTime || new Date() - user.loginTime > 15 * 60 * 1000)) {
+        console.log('\n\n');
         await login(user);
         await getBalanceInfo(user);
+        console.log('\n\n');
     }
 }
 
