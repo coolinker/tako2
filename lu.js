@@ -276,7 +276,7 @@ async function checkToInvest(product, user) {
     const invck = await investCheck(product.id, product.price, user);
 
     //"TRADE_INFO" "CONTRACT" "OTP"
-    console.log("sid==", invck.sid, new Date() - s, 'ms');
+    console.log("sid==", (invck ? invck.sid : null), new Date() - s, 'ms');
     if (!invck) return refun(false);
     const sid = invck.sid;
     const paymentMethod = invck.paymentMethod;
