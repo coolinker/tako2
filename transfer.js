@@ -43,13 +43,13 @@ async function listTransferM3024() {
     const s = new Date();
     const rsp = await simplehttp.POST('https://ma.lu.com/mapp/service/public?M3024&listType=trans_p2p?_' + randomNumber(), options);
     const e = new Date();
-    if (e - s > 300) console.log(e - s, 'ms', proxyutil.getCurrentUrl());
+    if (e - s > 1000) console.log(e - s, 'ms', proxyutil.getCurrentUrl());
 
     let bodyJson;
     try {
         bodyJson = JSON.parse(rsp.body);
     } catch (e) {
-        console.log("error", rsp.body, rsp.err ? rsp.err.code : '' );
+        console.log("error code:", rsp.err ? rsp.err.code : '', 'body', rsp.body);
         console.log("error proxy:", proxyutil.getCurrentUrl());
         
         return rsp.err ? rsp.err.code : null;
@@ -80,14 +80,14 @@ async function listTransferM3024() {
 exports.serverLoop = serverLoop;
 async function serverLoop(interval, cb, errcb) {
     this.__cb = cb;
-    this.loop(interval, cb, errcb);
+    //this.loop(interval, cb, errcb);
 }
 
 exports.loop = loop;
 async function loop(interval, cb, errcb) {
     console.log("transfer job start looping", BuyPriceMin, BuyPriceMax, interval);
     let product, c = 0, pc = 0, sc = 0;
-
+    let start = new Date(), end;
     do {
         await timeout(interval);
         product = await listTransferM3024();
@@ -98,8 +98,12 @@ async function loop(interval, cb, errcb) {
             continue;
         }
         c++;
-        if (c % 100 === 0) console.log(c, "***", sc + '/' + pc);
-
+        if (c % 100 === 0) {
+            end = new Date();
+            console.log(c, "***", sc + '/' + pc, end - start, 'ms');
+            start = end;
+        } 
+        
         if (product !== null) {
             pc++;
             cb(product);

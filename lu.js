@@ -15,7 +15,7 @@ const RSAKey = require('./rsa.js');
 
 const CAN_UPDATE_IP = false;
 const STOP_INTERVAL = 5 * 60 * 1000;
-const LOOP_INTERVAL = process.argv[3]? Number(process.argv[3]): 500;
+const LOOP_INTERVAL = process.argv[3] ? Number(process.argv[3]) : 500;
 
 let BuyPriceMax = 0.8;
 let maxPrice = process.argv[2];
@@ -23,7 +23,7 @@ if (maxPrice) BuyPriceMax = Number(maxPrice);
 
 console.log("LOOP_INTERVAL:", LOOP_INTERVAL, "BuyPriceMax", BuyPriceMax);
 
-const transferJob = require('./transfer').config({BuyPriceMax: BuyPriceMax});
+const transferJob = require('./transfer').config({ BuyPriceMax: BuyPriceMax });
 
 let INVEST_LOCKED = false;
 let CURRENT_USER;
@@ -329,7 +329,7 @@ async function main(username) {
     let user = CURRENT_USER = users[username];
     let pc = 0, sc = 0;
     transferJob.serverLoop(LOOP_INTERVAL, async function (product) {
-        if (product && product.price < BuyPriceMax*10000 && product.price <= (user.available + user.lhb)) {
+        if (product && product.price < BuyPriceMax * 10000 && product.price <= (user.available + user.lhb)) {
             pc++;
 
             const suc = await checkToInvest(product, user);
@@ -339,7 +339,7 @@ async function main(username) {
         }
     }, async (errCode) => {
         console.log("timeout", STOP_INTERVAL, 'ms')
-            await timeout(STOP_INTERVAL);
+        await timeout(STOP_INTERVAL);
     });
 
     while (user) {
