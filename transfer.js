@@ -98,7 +98,7 @@ async function loop(interval, cb, errcb) {
             continue;
         }
         c++;
-        if (c % 5 === 0) console.log(c, "***", sc + '/' + pc);
+        if (c % 100 === 0) console.log(c, "***", sc + '/' + pc);
 
         if (product !== null) {
             pc++;

@@ -338,7 +338,8 @@ async function main(username) {
             }
         }
     }, async (errCode) => {
-        await timeout(STOP_INTERVAL);
+        console.log("timeout", STOP_INTERVAL, 'ms')
+            await timeout(STOP_INTERVAL);
     });
 
     while (user) {
