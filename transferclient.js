@@ -34,6 +34,7 @@ async function transferClient(serverIP) {
         if (CAN_UPDATE_IP) {
             await pppoeutil.updateIP();
         } else {
+            console.log("timeout", STOP_INTERVAL, 'ms')
             await timeout(STOP_INTERVAL);
         }
 

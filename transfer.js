@@ -1,9 +1,10 @@
-const simplehttp = require("./simplehttp");
+const simplehttp = require('./simplehttp');
 const htmlparser = require('./htmlparser');
-const pppoeutil = require("./pppoeutil");
+const pppoeutil = require('./pppoeutil');
 const util = require('util');
+const proxyutil = require('./proxyutil');
 
-const mobileheaderutil = require("./mobileheaderutil");
+const mobileheaderutil = require('./mobileheaderutil');
 
 let BuyPriceMax = 0.8, BuyPriceMin = 0.2;
 
@@ -11,7 +12,7 @@ const productIds = {};
 let loopFlag = true;
 
 exports.config = config;
-function config(options){
+function config(options) {
     BuyPriceMax = options.BuyPriceMax || BuyPriceMax;
     BuyPriceMin = options.BuyPriceMin || BuyPriceMin;
     return this;
@@ -28,24 +29,28 @@ function timeout(ms) {
 
 async function listTransferM3024() {
     //console.log("listTransferM3024...")
-    const options = {};
+    const options = {
+        proxy: proxyutil.getCurrentUrl()
+    };
     options.form = {
         requestCode: "M3024",
         version: "3.4.9",
         params: '{"cookieUserName":"","readListType":"trans_p2p","filterBeginInvestPeriodInDay":"10","width":720,"listType":"trans_p2p","pageSize":"15","ver":"1","isForNewUser":"false","productSortType":"INTEREST_RATE_DESC","forNewUser":"false","pageIndex":"1","filterEndTransPrice":"'
         + BuyPriceMax + '","source":"android","filterBeginTransPrice":"' + BuyPriceMin + '","currentPage":"1"}'
     };
-
+    options.timeout = 2000;
     options.headers = mobileheaderutil.getHeaders();
-
+    const s = new Date();
     const rsp = await simplehttp.POST('https://ma.lu.com/mapp/service/public?M3024&listType=trans_p2p?_' + randomNumber(), options);
+    const e = new Date();
+    if (e - s > 300) console.log(e - s, 'ms');
 
     let bodyJson;
     try {
         bodyJson = JSON.parse(rsp.body);
     } catch (e) {
-        console.log("error", rsp.body, rsp.err);
-        return null;
+        console.log("error", rsp.body, rsp.err ? rsp.err.code : '' );
+        return rsp.err ? rsp.err.code : null;
     }
 
     if (bodyJson.code !== "0000") {
@@ -71,7 +76,7 @@ async function listTransferM3024() {
 }
 
 exports.serverLoop = serverLoop;
-async function serverLoop(interval, cb, errcb){
+async function serverLoop(interval, cb, errcb) {
     this.__cb = cb;
     this.loop(interval, cb, errcb);
 }
@@ -85,11 +90,13 @@ async function loop(interval, cb, errcb) {
         await timeout(interval);
         product = await listTransferM3024();
         if (util.isString(product)) {
-            await errcb(product);
+            if(null === proxyutil.next()) {
+                await errcb(product);
+            }
             continue;
         }
         c++;
-        if (c % 100 === 0) console.log(c, "***", sc + '/' + pc);
+        if (c % 5 === 0) console.log(c, "***", sc + '/' + pc);
 
         if (product !== null) {
             pc++;
@@ -100,6 +107,6 @@ async function loop(interval, cb, errcb) {
 }
 
 exports.addProductFromExternal = addProductFromExternal;
-async function addProductFromExternal(product){
+async function addProductFromExternal(product) {
     this.__cb && this.__cb(product);
 }

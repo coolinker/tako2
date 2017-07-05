@@ -1,4 +1,6 @@
 var request = require("request");
+var HttpsProxyAgent = require('https-proxy-agent');  
+
 var pixelsUtil = require("get-pixels");
 exports.GET = sendGet;
 
@@ -16,6 +18,10 @@ function sendGet(url, options) {
 exports.POST = sendPost;
 function sendPost(url, options) {
     return new Promise(function (resolve, reject) {
+        if (options.proxy) {
+            options.agent = new HttpsProxyAgent(options.proxy);
+            delete options.proxy;
+        }
         options.uri = url;
         options.method = "POST";
         sendRequest(options, (err, res, body) => {
