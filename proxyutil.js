@@ -8,13 +8,10 @@ const proxies = [{
 {
     ip: '111.13.7.121',
     port: '80'
-},
-{
+},{
     ip: '59.66.135.35',
     port: '1080'
-},
-
-{
+},{
     ip: '111.13.7.122',
     port: '80'
 },{
@@ -29,9 +26,7 @@ const proxies = [{
 }, {
     ip: '202.108.14.87',
     port: '8080'
-},
-
-{
+},{
     ip: '111.13.2.138',
     port: '80'
 }, {
@@ -49,9 +44,7 @@ const proxies = [{
 }, {
     ip: '166.111.77.32',
     port: '80'
-},
-
-{
+}, {
     ip: '111.13.109.27',
     port: '80'
 }, {
@@ -72,18 +65,19 @@ const proxies = [{
 }, {
     ip: '119.84.15.210',
     port: '9001'
-}];
+}
+];
 
-const REUSE_INTERVAL = 30 * 60 * 1000;
+const REUSE_INTERVAL = 5 * 60 * 1000;
 let currentIndex = 0;
 
 exports.next = next;
 function next() {
     currentIndex++;
     if (currentIndex >= proxies.length) currentIndex = 0;
-    console.log("next proxy", currentIndex);
     const cur = getCurrent();
-
+    console.log("next proxy", currentIndex, cur);
+    
     if (!cur || cur.time && new Date() - cur.time < REUSE_INTERVAL) return null;
     return cur;
 }

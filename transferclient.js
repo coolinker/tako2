@@ -1,7 +1,7 @@
 const simplehttp = require("./simplehttp");
 const pppoeutil = require("./pppoeutil");
 
-const CAN_UPDATE_IP = true;
+const CAN_UPDATE_IP = false;
 const STOP_INTERVAL = 5 * 60 * 1000;
 const LOOP_INTERVAL = 10;
 
