@@ -50,6 +50,8 @@ async function listTransferM3024() {
         bodyJson = JSON.parse(rsp.body);
     } catch (e) {
         console.log("error", rsp.body, rsp.err ? rsp.err.code : '' );
+        console.log("error proxy:", proxyutil.getCurrentUrl());
+        
         return rsp.err ? rsp.err.code : null;
     }
 
