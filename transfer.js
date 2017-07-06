@@ -52,7 +52,7 @@ async function listTransferM3024() {
         console.log("error code:", rsp.err ? rsp.err.code : '', 'body', rsp.body);
         console.log("error proxy:", proxyutil.getCurrentUrl());
         
-        return rsp.err ? rsp.err.code : null;
+        return rsp.err ? rsp.err.code : 'null';
     }
 
     if (bodyJson.code !== "0000") {
