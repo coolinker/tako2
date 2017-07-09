@@ -1,5 +1,5 @@
 const simplehttp = require("./simplehttp");
-const pppoeutil = require("./pppoeutil");
+// const pppoeutil = require("./pppoeutil");
 
 const CAN_UPDATE_IP = false;
 const STOP_INTERVAL = 5 * 60 * 1000;
@@ -34,7 +34,7 @@ async function transferClient(serverIP) {
         console.log("product sent", product.id, product.price, body, new Date()-s);
     }, async (errCode) => {
         if (CAN_UPDATE_IP) {
-            await pppoeutil.updateIP();
+            // await pppoeutil.updateIP();
         } else {
             console.log("timeout", STOP_INTERVAL, 'ms')
             await timeout(STOP_INTERVAL);
