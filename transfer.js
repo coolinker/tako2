@@ -1,6 +1,5 @@
 const simplehttp = require('./simplehttp');
 const htmlparser = require('./htmlparser');
-const pppoeutil = require('./pppoeutil');
 const util = require('util');
 let proxyutil;
 
@@ -33,6 +32,7 @@ async function listTransferM3024() {
     const options = {
         proxy: proxyutil.getCurrentUrl()
     };
+
     options.form = {
         requestCode: "M3024",
         version: "3.4.9",
