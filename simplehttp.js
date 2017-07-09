@@ -1,5 +1,5 @@
 var request = require("request");
-var HttpsProxyAgent = require('https-proxy-agent');  
+var HttpsProxyAgent = require('https-proxy-agent');
 
 var pixelsUtil = require("get-pixels");
 exports.GET = sendGet;
@@ -7,9 +7,15 @@ exports.GET = sendGet;
 function sendGet(url, options) {
     if (!options) options = {};
     return new Promise(function (resolve, reject) {
+        if (options.proxy) {
+            options.agent = new HttpsProxyAgent(options.proxy);
+            options._proxy = options.proxy; 
+            delete options.proxy;
+        }
         options.uri = url;
         options.method = "GET";
         sendRequest(options, (err, res, body) => {
+            if (err) err.__options = options;
             resolve({ err, res, body });
         });
     })
@@ -20,11 +26,13 @@ function sendPost(url, options) {
     return new Promise(function (resolve, reject) {
         if (options.proxy) {
             options.agent = new HttpsProxyAgent(options.proxy);
+            options._proxy = options.proxy;
             delete options.proxy;
         }
         options.uri = url;
         options.method = "POST";
         sendRequest(options, (err, res, body) => {
+            if (err) err.__options = options;
             resolve({ err, res, body });
         });
     })

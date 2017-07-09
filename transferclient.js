@@ -7,9 +7,11 @@ const LOOP_INTERVAL = 10;
 
 let priceMax = process.argv[2];
 priceMax = priceMax ? Number(priceMax) : null;
-const transferJob = require('./transfer').config({BuyPriceMax: priceMax});
 
-const serverIP = process.argv[3] || 'localhost';
+const proxygroup = process.argv[3] || 'proxies0';
+const transferJob = require('./transfer').config({BuyPriceMax: priceMax, proxyGroup: proxygroup});
+
+const serverIP = process.argv[4] || 'localhost';
 console.log("Transfer client started:", serverIP, CAN_UPDATE_IP, LOOP_INTERVAL);
 
 function randomNumber() {

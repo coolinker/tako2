@@ -2,7 +2,7 @@ const simplehttp = require('./simplehttp');
 const htmlparser = require('./htmlparser');
 const pppoeutil = require('./pppoeutil');
 const util = require('util');
-const proxyutil = require('./proxyutil');
+let proxyutil;
 
 const mobileheaderutil = require('./mobileheaderutil');
 
@@ -13,6 +13,7 @@ let loopFlag = true;
 
 exports.config = config;
 function config(options) {
+    proxyutil = require('./proxyutil').config(options.proxyGroup);
     BuyPriceMax = options.BuyPriceMax || BuyPriceMax;
     BuyPriceMin = options.BuyPriceMin || BuyPriceMin;
     return this;
@@ -43,14 +44,14 @@ async function listTransferM3024() {
     const s = new Date();
     const rsp = await simplehttp.POST('https://ma.lu.com/mapp/service/public?M3024&listType=trans_p2p?_' + randomNumber(), options);
     const e = new Date();
-    if (e - s > 1000) console.log(e - s, 'ms', proxyutil.getCurrentUrl());
+    if (e - s > 10) console.log(e - s, 'ms', proxyutil.getCurrentUrl());
 
     let bodyJson;
     try {
         bodyJson = JSON.parse(rsp.body);
     } catch (e) {
         console.log("error code:", rsp.err ? rsp.err.code : '', 'body', rsp.body);
-        console.log("error proxy:", proxyutil.getCurrentUrl());
+        console.log("******error proxy:******", proxyutil.getCurrentUrl());
         
         return rsp.err ? rsp.err.code : 'null';
     }
