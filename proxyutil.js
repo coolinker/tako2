@@ -29,7 +29,7 @@ exports.getCurrentUrl = getCurrentUrl;
 function getCurrentUrl(type) {
     type = type || 'http';
     const n = getCurrent();
-    if (!n) return null;
+    if (!n || n.ip === 'localhost') return null;
     n.time = new Date();
     return n.ip.indexOf('http')>=0 ? ( n.ip + ':' + n.port) : (type + '://' + n.ip + ':' + n.port);
 }
