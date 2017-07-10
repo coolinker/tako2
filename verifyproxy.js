@@ -19,6 +19,9 @@ async function verifyIPsTxt(file) {
     ips = ips.split(EOL);
     for (let i = 0; i < ips.length; i++) {
         ip = ips[i].trim();
+        const m = ip.match(/(\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}:\d{1,10})/);
+        if (!m) continue;
+        ip = m[0];
         const options = {
             start: new Date(),
             timeout: 1000,
