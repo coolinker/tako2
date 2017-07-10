@@ -1,5 +1,6 @@
 const proxies0 = [
-    { ip: 'localhost'}
+    { ip: 'localhost' }
+    , { "ip": "61.152.81.193", "port": "9100", "speed": 490 }
     , { ip: '115.29.2.139', port: '80', speed: 88 }
     , { ip: '61.160.233.8', port: '80', speed: 231 }
     , { ip: '202.108.14.87', port: '8080', speed: 301 }
