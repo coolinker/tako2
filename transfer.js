@@ -44,7 +44,7 @@ async function listTransferM3024() {
     const s = new Date();
     const rsp = await simplehttp.POST('https://ma.lu.com/mapp/service/public?M3024&listType=trans_p2p?_' + randomNumber(), options);
     const e = new Date();
-    if (e - s > 10) console.log(e - s, 'ms', proxyutil.getCurrentUrl());
+    if (e - s > 1000) console.log(e - s, 'ms', proxyutil.getCurrentUrl());
 
     let bodyJson;
     try {
@@ -108,6 +108,7 @@ async function loop(interval, cb, errcb) {
         if (product !== null) {
             pc++;
             cb(product);
+            await timeout(1000);
         }
     } while (loopFlag);
 
