@@ -2,7 +2,7 @@ const simplehttp = require('./simplehttp');
 const proxyMap = require('./verifiedips.js').proxyMap;
 
 const fs = require('fs');
-const EOL = '\r\n';
+const EOL = process.platform === 'win32' ? '\r\n' : '\n';
 
 function randomNumber() {
     return Math.round(Math.random() * 100000);
