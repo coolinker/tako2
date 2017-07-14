@@ -17,18 +17,18 @@ const CAN_UPDATE_IP = false;
 const STOP_INTERVAL = 5 * 60 * 1000;
 const LOOP_INTERVAL = process.argv[3] ? Number(process.argv[3]) : 500;
 
-let BuyPriceMax = 0.8;
-let maxPrice = process.argv[2];
-if (maxPrice) BuyPriceMax = Number(maxPrice);
+const PRICE_RANGES = [
+    [0, 6000],
+    [11000, 13000]
+];
 
-console.log("LOOP_INTERVAL:", LOOP_INTERVAL, "BuyPriceMax", BuyPriceMax);
+console.log("PRICE_RANGES:", PRICE_RANGES);
 
-const transferJob = require('./transfer').config({ BuyPriceMax: BuyPriceMax });
+const transferJob = require('./transfer').config();
 
 let INVEST_LOCKED = false;
 let CURRENT_USER;
 const checkedInvest = {};
-//console.log("BuyPriceMax", BuyPriceMax, "CAN_UPDATE_IP", CAN_UPDATE_IP);
 
 function randomNumber() {
     return Math.round(Math.random() * 100000);
@@ -325,11 +325,20 @@ async function updateLogin(user) {
     }
 }
 
+function priceInRange(price) {
+    for (let i = 0; i < PRICE_RANGES.length; i++) {
+        const r = PRICE_RANGES[i];
+        if (price > r[0] && price < r[1]) return r;
+    }
+
+    return null;
+}
+
 async function main(username) {
     let user = CURRENT_USER = users[username];
     let pc = 0, sc = 0;
     transferJob.serverLoop(LOOP_INTERVAL, async function (product) {
-        if (product && product.price < BuyPriceMax * 10000 && product.price <= (user.available + user.lhb)) {
+        if (product && priceInRange(product.price) && product.price <= (user.available + user.lhb)) {
             pc++;
 
             const suc = await checkToInvest(product, user);

@@ -5,7 +5,7 @@ let proxyutil;
 
 const mobileheaderutil = require('./mobileheaderutil');
 
-let BuyPriceMax = 0.8, BuyPriceMin = 0.2;
+let BuyPriceMax = 1.3, BuyPriceMin = 0.2;
 
 const productIds = {};
 let loopFlag = true;
