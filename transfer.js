@@ -12,6 +12,7 @@ let loopFlag = true;
 
 exports.config = config;
 function config(options) {
+    if (!options) options = {};
     proxyutil = require('./proxyutil').config(options.proxyGroup);
     BuyPriceMax = options.BuyPriceMax || BuyPriceMax;
     BuyPriceMin = options.BuyPriceMin || BuyPriceMin;
