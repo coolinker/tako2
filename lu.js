@@ -179,7 +179,8 @@ async function getBalanceInfo(user) {
     let available = htmlparser.getValueFromBody('class="coin-point-item-number security-mark-hide">', '</span>', availablePrt);
     user.available = Number(available.replace(',', ''));
 
-    const lhbPrt = htmlparser.getValueFromBody('<h3 class="coin-point-item-header"> 零活宝T+0 </h3>', '元', body);
+    const lhbPrt = htmlparser.getValueFromBody('<h3 class="coin-point-item-header"> 陆金宝T+0 </h3>', '元', body);
+
     let lhb = htmlparser.getValueFromBody('class="coin-point-item-number security-mark-hide">', '</span>', lhbPrt);
     lhb = Number(lhb.trim().replace(',', ''));
     user.lhb = lhb;
