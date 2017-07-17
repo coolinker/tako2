@@ -18,8 +18,8 @@ const STOP_INTERVAL = 5 * 60 * 1000;
 const LOOP_INTERVAL = process.argv[3] ? Number(process.argv[3]) : 500;
 
 const PRICE_RANGES = [
-    [0, 6000],
-    [11000, 13000]
+    [0, 7000],
+    [11000, 14000]
 ];
 
 console.log("PRICE_RANGES:", PRICE_RANGES);
