@@ -119,6 +119,7 @@ function sendRequest(options, callback) {
         options.proxyTimeoutObj = setTimeout(function(){
             console.log("proxy timeout abort...")
             req.abort();
+            req.destroy();
             callback("ProxyTimeout");
         }, options.timeout)
     }
