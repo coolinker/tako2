@@ -9,7 +9,7 @@ function sendGet(url, options) {
     return new Promise(function (resolve, reject) {
         if (options.proxy) {
             options.agent = new HttpsProxyAgent(options.proxy);
-            options._proxy = options.proxy; 
+            options._proxy = options.proxy;
             delete options.proxy;
         }
         options.uri = url;
@@ -31,6 +31,7 @@ function sendPost(url, options) {
         }
         options.uri = url;
         options.method = "POST";
+
         sendRequest(options, (err, res, body) => {
             if (err) err.__options = options;
             resolve({ err, res, body });
@@ -100,10 +101,25 @@ function sendRequest(options, callback) {
         options.jar = options.cookieJar;
         delete options.cookieJar;
     }
-
+    
     var req = request(options, function (error, response, body) {
-        callback(error, response, body);
+        try {
+            if (options.proxyTimeoutObj) {
+                clearTimeout(options.proxyTimeoutObj);
+                delete options.proxyTimeoutObj;
+            }
+            callback(error, response, body);
+        } catch (e) {
+            console.log("----------------e", e)
+        }
     });
     req.__options = options;
 
+    if (options.agent) {
+        options.proxyTimeoutObj = setTimeout(function(){
+            console.log("proxy timeout abort...")
+            req.abort();
+            callback("ProxyTimeout");
+        }, options.timeout)
+    }
 }

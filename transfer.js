@@ -27,11 +27,11 @@ function timeout(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-
-async function listTransferM3024() {
+exports.listTransferM3024 = listTransferM3024;
+async function listTransferM3024(proxyurl, silence) {
     //console.log("listTransferM3024...")
     const options = {
-        proxy: proxyutil.getCurrentUrl()
+        proxy: proxyurl
     };
 
     options.form = {
@@ -40,25 +40,34 @@ async function listTransferM3024() {
         params: '{"cookieUserName":"","readListType":"trans_p2p","filterBeginInvestPeriodInDay":"10","width":720,"listType":"trans_p2p","pageSize":"15","ver":"1","isForNewUser":"false","productSortType":"INTEREST_RATE_DESC","forNewUser":"false","pageIndex":"1","filterEndTransPrice":"'
         + BuyPriceMax + '","source":"android","filterBeginTransPrice":"' + BuyPriceMin + '","currentPage":"1"}'
     };
-    options.timeout = 2000;
+    options.timeout = 3000;
     options.headers = mobileheaderutil.getHeaders();
     const s = new Date();
     const rsp = await simplehttp.POST('https://ma.lu.com/mapp/service/public?M3024&listType=trans_p2p?_' + randomNumber(), options);
     const e = new Date();
-    if (e - s > 1000) console.log(e - s, 'ms', proxyutil.getCurrentUrl());
+    if (!silence && e - s > 1000) console.log(e - s, 'ms', proxyurl);
+
+    if (rsp.err) {
+        if (!silence) {
+            console.log("\r\nerror code:", rsp.err, rsp.err ? rsp.err.code : '', 'body', rsp.body);
+            console.log("******error proxy:******", proxyurl);
+
+        }
+        throw rsp.err;
+    }
 
     let bodyJson;
     try {
         bodyJson = JSON.parse(rsp.body);
     } catch (e) {
-        console.log("error code:", rsp.err ? rsp.err.code : '', 'body', rsp.body);
-        console.log("******error proxy:******", proxyutil.getCurrentUrl());
-        
-        return rsp.err ? rsp.err.code : 'null';
+        if (!silence) {
+            console.log("************parse JSON error:",proxyurl, e, rsp.body);
+        }
+        throw e;
     }
 
     if (bodyJson.code !== "0000") {
-        console.log(new Date(), rsp.body);
+        if (!silence) console.log(new Date(), rsp.body);
         return bodyJson.code;
     }
 
@@ -67,10 +76,9 @@ async function listTransferM3024() {
         for (let i = 0; i < prds.length; i++) {
             // console.log(prds[i].productStatus, prds[i].price, prds[i].price<6000, prds[i].interestRate)
             if (!productIds[prds[i].id] && Number(prds[i].interestRate) >= 0.084 && prds[i].price > 10000 * BuyPriceMin && prds[i].price < 10000 * BuyPriceMax) {
-                console.log("---", prds[i].productStatus, prds[i].price, prds[i].id);
+                if (!silence) console.log("---", prds[i].productStatus, prds[i].price, prds[i].id);
                 productIds[prds[i].id] = true;
-                if (prds[i].productStatus !== 'ONLINE') return null;
-                return prds[i];
+                if (prds[i].productStatus === 'ONLINE') return prds[i];
 
             }
         }
@@ -92,9 +100,14 @@ async function loop(interval, cb, errcb) {
     let start = new Date(), end;
     do {
         await timeout(interval);
-        product = await listTransferM3024();
+        try {
+            product = await listTransferM3024(proxyutil.getCurrentUrl());
+        } catch (e) {
+            product = 'error';
+        }
+
         if (util.isString(product)) {
-            if(null === proxyutil.next()) {
+            if (null === proxyutil.next()) {
                 await errcb(product);
             }
             continue;
@@ -104,8 +117,8 @@ async function loop(interval, cb, errcb) {
             end = new Date();
             console.log(c, "***", sc + '/' + pc, end - start, 'ms');
             start = end;
-        } 
-        
+        }
+
         if (product !== null) {
             pc++;
             cb(product);
