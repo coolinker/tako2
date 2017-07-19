@@ -37,7 +37,7 @@ async function getCityRawIPs(city) {
 
     //%C9%CF%BA%A3
 
-    const { err, res, body } = await simplehttp.GET('http://www.66ip.cn/nmtq.php?getnum=100&isp=0&anonymoustype=0&start=&ports=&export=808&ipaddress='
+    const { err, res, body } = await simplehttp.GET('http://www.66ip.cn/nmtq.php?getnum=50&isp=0&anonymoustype=0&start=&ports=&export=808&ipaddress='
         + city + '&area=1&proxytype=1&api=66ip', options);
 
     const availablePrt = htmlparser.getValueFromBody('var sogou_ad_width=960;', '</div>', body);

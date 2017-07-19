@@ -22,6 +22,11 @@ const PRICE_RANGES = [
     [11000, 14000]
 ];
 
+WORKINGTIME_RANGES = [
+    [3, 11],
+    [15, 24]
+];
+
 console.log("PRICE_RANGES:", PRICE_RANGES);
 
 const transferJob = require('./transfer').config();
@@ -335,9 +340,21 @@ function priceInRange(price) {
     return null;
 }
 
+function isWorkTime() {
+    const now = new Date();
+    const h = now.getHours();
+    for (let i = 0; i < WORKINGTIME_RANGES.length; i++) {
+        const r = WORKINGTIME_RANGES[i];
+        if (h >= r[0] && h < r[1]) return true;
+    }
+
+    return false;
+}
+
 async function main(username) {
     let user = CURRENT_USER = users[username];
     let pc = 0, sc = 0;
+    let working = false;
     transferJob.serverLoop(LOOP_INTERVAL, async function (product) {
         if (product && priceInRange(product.price) && product.price <= (user.available + user.lhb)) {
             pc++;
@@ -353,7 +370,14 @@ async function main(username) {
     });
 
     while (user) {
-        await updateLogin(user);
+        if (isWorkTime()) {
+            if (!working) console.log("Start working", new Date().toLocaleTimeString());
+            working = true;
+            await updateLogin(user);
+        } else {
+            if (working) console.log("End working", new Date().toLocaleTimeString());
+            working = false;
+        }
         await timeout(30000);
 
     }

@@ -10,6 +10,11 @@ let BuyPriceMax = 1.3, BuyPriceMin = 0.2;
 const productIds = {};
 let loopFlag = true;
 
+WORKINGTIME_RANGES = [
+    [3, 11],
+    [15, 24]
+];
+
 exports.config = config;
 function config(options) {
     if (!options) options = {};
@@ -25,6 +30,17 @@ function randomNumber() {
 
 function timeout(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isWorkTime() {
+    const now = new Date();
+    const h = now.getHours();
+    for (let i = 0; i < WORKINGTIME_RANGES.length; i++) {
+        const r = WORKINGTIME_RANGES[i];
+        if (h >= r[0] && h < r[1]) return true;
+    }
+
+    return false;
 }
 
 exports.listTransferM3024 = listTransferM3024;
@@ -100,6 +116,12 @@ async function loop(interval, cb, errcb) {
     let start = new Date(), end;
     do {
         await timeout(interval);
+
+        while(!isWorkTime()) {
+            console.log("This is not working time", new Date().toLocaleTimeString())
+            await timeout(300000);
+        }
+
         try {
             product = await listTransferM3024(proxyutil.getCurrentUrl());
         } catch (e) {
