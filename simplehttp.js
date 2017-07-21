@@ -101,7 +101,7 @@ function sendRequest(options, callback) {
         options.jar = options.cookieJar;
         delete options.cookieJar;
     }
-    
+
     var req = request(options, function (error, response, body) {
         try {
             if (options.proxyTimeoutObj) {
@@ -116,10 +116,15 @@ function sendRequest(options, callback) {
     req.__options = options;
 
     if (options.agent) {
-        options.proxyTimeoutObj = setTimeout(function(){
+        options.proxyTimeoutObj = setTimeout(function () {
             console.log("proxy timeout abort...")
-            req.abort();
-            req.destroy();
+            try {
+                req.abort();
+                req.destroy();
+
+            } catch (e) {
+                console.log("catch abort+++++++", e)
+            }
             callback("ProxyTimeout");
         }, options.timeout)
     }

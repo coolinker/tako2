@@ -53,6 +53,7 @@ async function listTransferM3024(proxyurl, silence) {
     options.form = {
         requestCode: "M3024",
         version: "3.4.9",
+        //INTEREST_RATE_DESC TRANSFER_PRICE_ASC
         params: '{"cookieUserName":"","readListType":"trans_p2p","filterBeginInvestPeriodInDay":"10","width":720,"listType":"trans_p2p","pageSize":"15","ver":"1","isForNewUser":"false","productSortType":"INTEREST_RATE_DESC","forNewUser":"false","pageIndex":"1","filterEndTransPrice":"'
         + BuyPriceMax + '","source":"android","filterBeginTransPrice":"' + BuyPriceMin + '","currentPage":"1"}'
     };
