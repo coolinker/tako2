@@ -15,7 +15,9 @@ const RSAKey = require('./rsa.js');
 
 const CAN_UPDATE_IP = false;
 const STOP_INTERVAL = 5 * 60 * 1000;
-const LOOP_INTERVAL = process.argv[3] ? Number(process.argv[3]) : 500;
+const LOOP_INTERVAL = 500;
+const myUser = process.argv[2] ? process.argv[2] : 'yang_jianhua';
+console.log("User login as:", myUser)
 
 const PRICE_RANGES = [
     [0, 7000],
@@ -384,7 +386,7 @@ async function main(username) {
 
 }
 
-main('coolinker');
+main(myUser);
 
 const serverActionHandlers = require("./server");
 serverActionHandlers.produce = function (prm, cb) {
