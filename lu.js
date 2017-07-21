@@ -25,7 +25,7 @@ const PRICE_RANGES = [
 ];
 
 const WORKINGTIME_RANGES = [
-    [0, 11],
+    [3, 11],
     [15, 24]
 ];
 
