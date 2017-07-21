@@ -24,8 +24,8 @@ const PRICE_RANGES = [
     [11000, 14000]
 ];
 
-WORKINGTIME_RANGES = [
-    [3, 11],
+const WORKINGTIME_RANGES = [
+    [0, 11],
     [15, 24]
 ];
 

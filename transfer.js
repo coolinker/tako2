@@ -10,7 +10,7 @@ let BuyPriceMax = 1.3, BuyPriceMin = 0.2;
 const productIds = {};
 let loopFlag = true;
 
-WORKINGTIME_RANGES = [
+const WORKINGTIME_RANGES = [
     [3, 11],
     [15, 24]
 ];
