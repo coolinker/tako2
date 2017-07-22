@@ -8,8 +8,13 @@ const LOOP_INTERVAL = 10;
 let priceMax = process.argv[2];
 priceMax = priceMax ? Number(priceMax) : null;
 
-const proxygroup = process.argv[3] || 'proxies0';
-const transferJob = require('./transfer').config({BuyPriceMax: priceMax, proxyGroup: proxygroup});
+const proxygroup = 'proxies0';
+
+const timeRanges = process.argv[3];
+const WORKINGTIME_RANGES = timeRanges ? JSON.parse(timeRanges) : [[3, 11], [15, 24]];
+
+const transferJob = require('./transfer').config({BuyPriceMax: priceMax, proxyGroup: proxygroup, WORKINGTIME_RANGES: WORKINGTIME_RANGES});
+
 
 const serverIP = process.argv[4] || 'localhost';
 console.log("Transfer client started:", serverIP, CAN_UPDATE_IP, LOOP_INTERVAL);

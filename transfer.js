@@ -10,7 +10,7 @@ let BuyPriceMax = 1.3, BuyPriceMin = 0.2;
 const productIds = {};
 let loopFlag = true;
 
-const WORKINGTIME_RANGES = [
+let WORKINGTIME_RANGES = [
     [3, 11],
     [15, 24]
 ];
@@ -21,6 +21,7 @@ function config(options) {
     proxyutil = require('./proxyutil').config(options.proxyGroup);
     BuyPriceMax = options.BuyPriceMax || BuyPriceMax;
     BuyPriceMin = options.BuyPriceMin || BuyPriceMin;
+    WORKINGTIME_RANGES = options.WORKINGTIME_RANGES || WORKINGTIME_RANGES;
     return this;
 }
 
