@@ -24,12 +24,11 @@ const PRICE_RANGES = [
     [11000, 14000]
 ];
 
-const WORKINGTIME_RANGES = [
-    [3, 11],
-    [12, 24]
-];
+const timeRanges = process.argv[3];
+const WORKINGTIME_RANGES = timeRanges ? JSON.parse(timeRanges) : [[3, 11], [15, 24]];
 
-console.log("PRICE_RANGES:", PRICE_RANGES);
+
+console.log("PRICE_RANGES:", PRICE_RANGES, "WORKINGTIME_RANGES", WORKINGTIME_RANGES);
 
 const transferJob = require('./transfer').config();
 
