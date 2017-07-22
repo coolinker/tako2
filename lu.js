@@ -26,7 +26,7 @@ const PRICE_RANGES = [
 
 const WORKINGTIME_RANGES = [
     [3, 11],
-    [15, 24]
+    [12, 24]
 ];
 
 console.log("PRICE_RANGES:", PRICE_RANGES);
