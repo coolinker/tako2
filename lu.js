@@ -181,18 +181,26 @@ async function getBalanceInfo(user) {
     const { err, res, body } = await simplehttp.GET('https://my.lu.com/my/account', {
         "cookieJar": user.jar
     });
-
+    console.log('getBalanceInfo-----------')
     const availablePrt = htmlparser.getValueFromBody('<h3 class="coin-point-item-header">可用余额</h3>', '元', body);
-    let available = htmlparser.getValueFromBody('class="coin-point-item-number security-mark-hide">', '</span>', availablePrt);
-    user.available = Number(available.replace(',', ''));
+    if (availablePrt) {
+        console.log('availablePrt-----------')
+    
+        let available = htmlparser.getValueFromBody('class="coin-point-item-number security-mark-hide">', '</span>', availablePrt);
+        user.available = Number(available.replace(',', ''));
+
+    }
 
     const lhbPrt = htmlparser.getValueFromBody('<h3 class="coin-point-item-header"> 陆金宝T+0 </h3>', '元', body);
+    if (lhbPrt) {
+        console.log('lhbPrt-----------')
+        let lhb = htmlparser.getValueFromBody('class="coin-point-item-number security-mark-hide">', '</span>', lhbPrt);
+        lhb = Number(lhb.trim().replace(',', ''));
+        user.lhb = lhb;
+    }
 
-    let lhb = htmlparser.getValueFromBody('class="coin-point-item-number security-mark-hide">', '</span>', lhbPrt);
-    lhb = Number(lhb.trim().replace(',', ''));
-    user.lhb = lhb;
 
-    console.log("user info updated:", user.available, lhb)
+    console.log("user info updated:", user.available, user.lhb)
 }
 
 async function login(user) {
