@@ -20,8 +20,8 @@ const myUser = process.argv[2] ? process.argv[2] : 'yang_jianhua';
 console.log("User login as:", myUser)
 
 const PRICE_RANGES = [
-    [0, 7000],
-    [11000, 14000]
+    //[0, 7000],
+    [2000, 14000]
 ];
 
 const timeRanges = process.argv[3];
