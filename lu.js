@@ -83,6 +83,7 @@ async function investCheck(pid, price, user) {
     });
     try {
         const data = JSON.parse(body).data;
+        if (!data.sid) console.log(body);
         return data.sid ? data : null;
     } catch (e) {
         console.log("investCheck", body)
@@ -174,6 +175,49 @@ async function investmentRequest(sid, pid, user, captcha, imageId, paymentMethod
     });
 
     return body;
+}
+
+async function getRecharge(user, pno) {
+    if (!pno) pno = 1;
+    const { err, res, body } = await simplehttp.GET('https://my.lu.com/my/service/api/recharge-records/v2/' + pno + '?startDate=&endDate=&_' + randomNumber(), {
+        "cookieJar": user.jar
+    });
+    //{"totalCount":18,"totalPage":2,"prePage":0,"nextPage":2,"pageLimit":10,"currentPage":1,"data":[{"id":"136294892","bankName":"中国建设银行","bankCardNo":"6217***********5450","withdrawAmount":9000,"withdrawFee":0,"actualAmount":9000,"withdrawStatus":"成功","createdAt":"2017-02-27 00:25:52","updatedAt":"2017-02-27 02:02:00","remarks":"手动取现","toAccountTime":"2017-02-27 02:02:00","bankCardNoLast4Bit":"5450"},{"id":"130764880","bankName":"中国建设银行","bankCardNo":"6217***********5450","withdrawAmount":1500,"withdrawFee":0,"actualAmount":1500,"withdrawStatus":"成功","createdAt":"2016-11-29 18:23:23","updatedAt":"2016-11-29 18:29:05","remarks":"手动取现","toAccountTime":"2016-11-29 18:29:05","bankCardNoLast4Bit":"5450"},{"id":"128963620","bankName":"中国建设银行","bankCardNo":"6217***********5450","withdrawAmount":29000,"withdrawFee":0,"actualAmount":29000,"withdrawStatus":"成功","createdAt":"2016-10-28 17:25:24","updatedAt":"2016-10-28 17:34:00","remarks":"手动取现","toAccountTime":"2016-10-28 17:34:00","bankCardNoLast4Bit":"5450"},{"id":"128758414","bankName":"中国建设银行","bankCardNo":"6217***********5450","withdrawAmount":10000,"withdrawFee":0,"actualAmount":10000,"withdrawStatus":"成功","createdAt":"2016-10-25 14:45:05","updatedAt":"2016-10-25 14:54:17","remarks":"陆金宝赎回进银行卡","toAccountTime":"2016-10-25 14:54:17","bankCardNoLast4Bit":"5450"},{"id":"127966977","bankName":"中国建设银行","bankCardNo":"6217***********5450","withdrawAmount":10000,"withdrawFee":0,"actualAmount":10000,"withdrawStatus":"成功","createdAt":"2016-10-11 21:42:56","updatedAt":"2016-10-11 21:49:03","remarks":"陆金宝赎回进银行卡","toAccountTime":"2016-10-11 21:49:03","bankCardNoLast4Bit":"5450"},{"id":"127093141","bankName":"中国建设银行","bankCardNo":"6217***********5450","withdrawAmount":50000,"withdrawFee":0,"actualAmount":50000,"withdrawStatus":"成功","createdAt":"2016-09-24 17:46:32","updatedAt":"2016-09-24 17:54:01","remarks":"手动取现","toAccountTime":"2016-09-24 17:54:01","bankCardNoLast4Bit":"5450"},{"id":"126887964","bankName":"中国建设银行","bankCardNo":"6217***********5450","withdrawAmount":7000,"withdrawFee":0,"actualAmount":7000,"withdrawStatus":"成功","createdAt":"2016-09-21 13:37:49","updatedAt":"2016-09-21 13:44:16","remarks":"手动取现","toAccountTime":"2016-09-21 13:44:16","bankCardNoLast4Bit":"5450"},{"id":"126645254","bankName":"中国建设银行","bankCardNo":"6217***********5450","withdrawAmount":78300,"withdrawFee":0,"actualAmount":78300,"withdrawStatus":"成功","createdAt":"2016-09-17 17:57:58","updatedAt":"2016-09-17 19:32:01","remarks":"手动取现","toAccountTime":"2016-09-17 19:32:01","bankCardNoLast4Bit":"5450"},{"id":"125818900","bankName":"中国建设银行","bankCardNo":"6217***********5450","withdrawAmount":5000,"withdrawFee":0,"actualAmount":5000,"withdrawStatus":"成功","createdAt":"2016-08-31 12:32:53","updatedAt":"2016-08-31 14:07:14","remarks":"陆金宝赎回进银行卡","toAccountTime":"2016-08-31 14:07:14","bankCardNoLast4Bit":"5450"},{"id":"121321032","bankName":"中国建设银行","bankCardNo":"6217***********5450","withdrawAmount":8363.47,"withdrawFee":0,"actualAmount":8363.47,"withdrawStatus":"成功","createdAt":"2016-06-12 12:55:05","updatedAt":"2016-06-12 14:33:02","remarks":"陆金宝赎回进银行卡","toAccountTime":"2016-06-12 14:33:02","bankCardNoLast4Bit":"5450"}],"retCode":"000","retMsg":"success"}
+    if (!err) {
+        const json = JSON.parse(body);
+        const data = json.data;
+        let net = 0;
+        for (let i = 0; i < data.length; i++) {
+            net += data[i].netAmount;
+        }
+        return json.currentPage === json.totalPage ? Math.round(net) : (net + await getRecharge(user, pno + 1));
+    }
+
+}
+
+async function getWidthdraw(user, pno) {
+    if (!pno) pno = 1;
+    const { err, res, body } = await simplehttp.GET('https://my.lu.com/my/service/api/withdraw-records/v2/' + pno + '?startDate=&endDate=&_' + randomNumber(), {
+        "cookieJar": user.jar
+    });
+    //{"totalCount":18,"totalPage":2,"prePage":0,"nextPage":2,"pageLimit":10,"currentPage":1,"data":[{"id":"136294892","bankName":"中国建设银行","bankCardNo":"6217***********5450","withdrawAmount":9000,"withdrawFee":0,"actualAmount":9000,"withdrawStatus":"成功","createdAt":"2017-02-27 00:25:52","updatedAt":"2017-02-27 02:02:00","remarks":"手动取现","toAccountTime":"2017-02-27 02:02:00","bankCardNoLast4Bit":"5450"},{"id":"130764880","bankName":"中国建设银行","bankCardNo":"6217***********5450","withdrawAmount":1500,"withdrawFee":0,"actualAmount":1500,"withdrawStatus":"成功","createdAt":"2016-11-29 18:23:23","updatedAt":"2016-11-29 18:29:05","remarks":"手动取现","toAccountTime":"2016-11-29 18:29:05","bankCardNoLast4Bit":"5450"},{"id":"128963620","bankName":"中国建设银行","bankCardNo":"6217***********5450","withdrawAmount":29000,"withdrawFee":0,"actualAmount":29000,"withdrawStatus":"成功","createdAt":"2016-10-28 17:25:24","updatedAt":"2016-10-28 17:34:00","remarks":"手动取现","toAccountTime":"2016-10-28 17:34:00","bankCardNoLast4Bit":"5450"},{"id":"128758414","bankName":"中国建设银行","bankCardNo":"6217***********5450","withdrawAmount":10000,"withdrawFee":0,"actualAmount":10000,"withdrawStatus":"成功","createdAt":"2016-10-25 14:45:05","updatedAt":"2016-10-25 14:54:17","remarks":"陆金宝赎回进银行卡","toAccountTime":"2016-10-25 14:54:17","bankCardNoLast4Bit":"5450"},{"id":"127966977","bankName":"中国建设银行","bankCardNo":"6217***********5450","withdrawAmount":10000,"withdrawFee":0,"actualAmount":10000,"withdrawStatus":"成功","createdAt":"2016-10-11 21:42:56","updatedAt":"2016-10-11 21:49:03","remarks":"陆金宝赎回进银行卡","toAccountTime":"2016-10-11 21:49:03","bankCardNoLast4Bit":"5450"},{"id":"127093141","bankName":"中国建设银行","bankCardNo":"6217***********5450","withdrawAmount":50000,"withdrawFee":0,"actualAmount":50000,"withdrawStatus":"成功","createdAt":"2016-09-24 17:46:32","updatedAt":"2016-09-24 17:54:01","remarks":"手动取现","toAccountTime":"2016-09-24 17:54:01","bankCardNoLast4Bit":"5450"},{"id":"126887964","bankName":"中国建设银行","bankCardNo":"6217***********5450","withdrawAmount":7000,"withdrawFee":0,"actualAmount":7000,"withdrawStatus":"成功","createdAt":"2016-09-21 13:37:49","updatedAt":"2016-09-21 13:44:16","remarks":"手动取现","toAccountTime":"2016-09-21 13:44:16","bankCardNoLast4Bit":"5450"},{"id":"126645254","bankName":"中国建设银行","bankCardNo":"6217***********5450","withdrawAmount":78300,"withdrawFee":0,"actualAmount":78300,"withdrawStatus":"成功","createdAt":"2016-09-17 17:57:58","updatedAt":"2016-09-17 19:32:01","remarks":"手动取现","toAccountTime":"2016-09-17 19:32:01","bankCardNoLast4Bit":"5450"},{"id":"125818900","bankName":"中国建设银行","bankCardNo":"6217***********5450","withdrawAmount":5000,"withdrawFee":0,"actualAmount":5000,"withdrawStatus":"成功","createdAt":"2016-08-31 12:32:53","updatedAt":"2016-08-31 14:07:14","remarks":"陆金宝赎回进银行卡","toAccountTime":"2016-08-31 14:07:14","bankCardNoLast4Bit":"5450"},{"id":"121321032","bankName":"中国建设银行","bankCardNo":"6217***********5450","withdrawAmount":8363.47,"withdrawFee":0,"actualAmount":8363.47,"withdrawStatus":"成功","createdAt":"2016-06-12 12:55:05","updatedAt":"2016-06-12 14:33:02","remarks":"陆金宝赎回进银行卡","toAccountTime":"2016-06-12 14:33:02","bankCardNoLast4Bit":"5450"}],"retCode":"000","retMsg":"success"}
+    if (!err) {
+        const json = JSON.parse(body);
+        const data = json.data;
+        let net = 0;
+        for (let i = 0; i < data.length; i++) {
+            net += data[i].actualAmount;
+        }
+        return json.currentPage === json.totalPage ? Math.round(net) : (net + await getWidthdraw(user, pno + 1));
+    }
+
+}
+
+async function getNetRecharge(user) {
+    const recharge = await getRecharge(user);
+    const withdraw = await getWidthdraw(user);
+    console.log("getNetRecharge", recharge, withdraw, 'net', recharge - withdraw);
+    user.netRecharge = recharge - withdraw;
 }
 
 async function getBalanceInfo(user) {
@@ -331,6 +375,7 @@ async function updateLogin(user) {
         console.log('\n\n');
         await login(user);
         await getBalanceInfo(user);
+        await getNetRecharge(user);
         console.log('\n\n');
     }
 }
