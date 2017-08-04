@@ -3,17 +3,22 @@ const simplehttp = require("./simplehttp");
 
 const CAN_UPDATE_IP = false;
 const STOP_INTERVAL = 5 * 60 * 1000;
-const LOOP_INTERVAL = 10;
+const LOOP_INTERVAL = 300;
 
 let priceMax = process.argv[2];
 priceMax = priceMax ? Number(priceMax) : null;
 
 const proxygroup = 'proxies0';
+const transferAPIType = process.argv[3] ? process.argv[3] : 'app';
 
-const timeRanges = process.argv[3];
+const timeRanges = process.argv[4];
 const WORKINGTIME_RANGES = timeRanges ? JSON.parse(timeRanges) : [[3, 11], [15, 24]];
 
-const transferJob = require('./transfer').config({BuyPriceMax: priceMax, proxyGroup: proxygroup, WORKINGTIME_RANGES: WORKINGTIME_RANGES});
+const transferJob = require('./transfer').config({BuyPriceMax: priceMax, 
+    proxyGroup: proxygroup, 
+    WORKINGTIME_RANGES: WORKINGTIME_RANGES,
+    transferAPIType: transferAPIType
+});
 
 
 const serverIP = process.argv[4] || 'localhost';
@@ -30,13 +35,14 @@ function timeout(ms) {
 async function transferClient(serverIP) {
     transferJob.loop(LOOP_INTERVAL, async function (product) {
         let s = new Date();
+        console.log("sending", product)
         const { err, res, body } = await simplehttp.POST('http://' + serverIP + ':80/api?action=produce', {
             json: {
                 'id': product.id,
                 'price': product.price
             },
         });
-        console.log("product sent", product.id, product.price, body, new Date()-s);
+        console.log("product sent", body, new Date()-s);
     }, async (errCode) => {
         if (CAN_UPDATE_IP) {
             // await pppoeutil.updateIP();
