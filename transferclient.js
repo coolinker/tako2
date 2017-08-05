@@ -35,7 +35,6 @@ function timeout(ms) {
 async function transferClient(serverIP) {
     transferJob.loop(LOOP_INTERVAL, async function (product) {
         let s = new Date();
-        console.log("sending", product)
         const { err, res, body } = await simplehttp.POST('http://' + serverIP + ':80/api?action=produce', {
             json: {
                 'id': product.id,
