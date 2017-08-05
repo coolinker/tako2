@@ -9,7 +9,7 @@ priceMax = priceMax ? Number(priceMax) : null;
 const proxygroup = 'proxies0';
 const transferAPIType = process.argv[3] ? process.argv[3] : 'app';
 
-const LOOP_INTERVAL = transferAPIType === 'app' ? 100 : 1500;
+const LOOP_INTERVAL = transferAPIType === 'app' ? 10 : 600;
 
 const timeRanges = process.argv[4];
 const WORKINGTIME_RANGES = timeRanges ? JSON.parse(timeRanges) : [[3, 11], [15, 24]];
@@ -21,7 +21,7 @@ const transferJob = require('./transfer').config({BuyPriceMax: priceMax,
 });
 
 
-const serverIP = process.argv[4] || 'localhost';
+const serverIP = process.argv[5] || 'localhost';
 console.log("Transfer client started:", serverIP, CAN_UPDATE_IP, LOOP_INTERVAL);
 
 function randomNumber() {
