@@ -63,7 +63,7 @@ async function listTransferWeb(proxyurl, silence) {
         , options);
 
     const e = new Date();
-    if (!silence && e - s > 3000)
+    if (!silence && e - s > 1000)
         console.log(e - s, 'ms', proxyurl, rsp.body ? rsp.body.length : '');
 
     if (rsp.err) {
