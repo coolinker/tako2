@@ -12,7 +12,7 @@ const transferAPIType = process.argv[3] ? process.argv[3] : 'app';
 const LOOP_INTERVAL = transferAPIType === 'app' ? 10 : 600;
 
 const timeRanges = process.argv[4];
-const WORKINGTIME_RANGES = timeRanges ? JSON.parse(timeRanges) : [[3, 11], [15, 24]];
+const WORKINGTIME_RANGES = timeRanges ? JSON.parse(timeRanges) : [[0, 24]];
 
 const transferJob = require('./transfer').config({BuyPriceMax: priceMax, 
     proxyGroup: proxygroup, 

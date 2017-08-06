@@ -25,7 +25,7 @@ const PRICE_RANGES = [
 ];
 
 const timeRanges = process.argv[3];
-const WORKINGTIME_RANGES = timeRanges ? JSON.parse(timeRanges) : [[3, 11], [15, 24]];
+const WORKINGTIME_RANGES = timeRanges ? JSON.parse(timeRanges) : [[0, 24]];
 
 
 console.log("PRICE_RANGES:", PRICE_RANGES, "WORKINGTIME_RANGES", WORKINGTIME_RANGES);
@@ -346,7 +346,7 @@ async function checkToInvest(product, user) {
 
     console.log("before OTP", new Date() - s, 'ms')
     const otp = await tradeTrace(sid, product.id, user, 'OTP');
-    console.log("otp", new Date() - s, 'ms')
+    console.log("otp", otp, new Date() - s, 'ms')
     if (otp === false) return refun(false);
 
     const crack = await crackTradingCaptcha(sid, product.id, user);
