@@ -25,7 +25,7 @@ const PRICE_RANGES = [
 ];
 
 const timeRanges = process.argv[3];
-const WORKINGTIME_RANGES = timeRanges ? JSON.parse(timeRanges) : [[0, 24]];
+const WORKINGTIME_RANGES = timeRanges ? JSON.parse(timeRanges) : [[3, 24]];
 
 
 console.log("PRICE_RANGES:", PRICE_RANGES, "WORKINGTIME_RANGES", WORKINGTIME_RANGES);
@@ -355,7 +355,7 @@ async function checkToInvest(product, user) {
     if (!crack) return refun(false);
 
     const invRes = await investmentRequest(sid, product.id, user, crack.captchaStr, crack.imageId, paymentMethod);
-    console.log(invRes, '\n\n');
+    console.log("invRes", invRes, '\n\n');
     const invResJson = JSON.parse(invRes);
 
     // {"code":"09","apiCode":"400009","message":"其他原因失败","locked":false,"needWithholding":false,"isRiskLevelMatch":false,"isCan
@@ -407,11 +407,16 @@ async function main(username) {
     transferJob.serverLoop(LOOP_INTERVAL, async function (product) {
         if (product && priceInRange(product.price) && product.price <= (user.available + user.lhb)) {
             pc++;
-
-            const suc = await checkToInvest(product, user);
-            if (suc) {
-                sc++;
+            try {
+                const suc = await checkToInvest(product, user);
+                if (suc) {
+                    sc++;
+                }
+            } catch (e) {
+                console.log("e", e.stack);
+                INVEST_LOCKED = false;
             }
+
         }
     }, async (errCode) => {
         console.log("timeout", STOP_INTERVAL, 'ms')
